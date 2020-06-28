@@ -1,14 +1,51 @@
 [package]
 name = "miracl_core"
-version = "0.1.0"
+version = "2.0.0"
 authors = ["lovesh <lovesh.bond@gmail.com>"]
 edition = "2018"
+description = "Rust code for 64 bit generated from https://github.com/miracl/core"
+repository = "https://github.com/lovesh/miracl_core_generated/tree/master/rust_64"
+license = "Apache-2.0"
 
 
 [features]
-default = ["bls381"]
+default = ["bls12381"]
 bn254 = []
 bls12381 = []
 ed25519 = []
 secp256k1 = []
-
+c25519 = []
+brainpool = []
+nist256 = []
+nist384 = []
+ansii = []
+hifive = []
+goldilocks = []
+c41417 = []
+nist521 = []
+nums256w = []
+nums256e = []
+nums384w = []
+nums384e = []
+nums512w = []
+nums512e = []
+sm2 = []
+c13318 = []
+jubjub = []
+x448 = []
+c1174 = []
+c1665 = []
+mdc = []
+bn254x = []
+bls12383 = []
+fp256bn = []
+fp512bn = []
+bls12461 = []
+bn462 = []
+bls24479 = []
+bls48556 = []
+bls48581 = []
+bls48286 = []
+rsa2048 = []
+rsa3072 = []
+rsa4096 = []
