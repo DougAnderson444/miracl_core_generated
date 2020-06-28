@@ -1,0 +1,3 @@
+[submodule "miracl_core"]
+	path = miracl_core
+	url = https://github.com/miracl/core
