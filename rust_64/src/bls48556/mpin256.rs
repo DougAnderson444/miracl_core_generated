@@ -31,7 +31,7 @@ use crate::bls48556::dbig::DBIG;
 use crate::hmac;
 use crate::rand::RAND;
 
-/* MPIN API Functions */
+/* MPIN 256-bit API Functions */
 
 /* Configure mode of operation */
 

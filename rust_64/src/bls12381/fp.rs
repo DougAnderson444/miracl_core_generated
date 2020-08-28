@@ -42,8 +42,9 @@ pub const POSITOWER: usize = 1;
 
 pub const MODBITS:usize = 381; /* Number of bits in Modulus */
 pub const PM1D2: usize = 1;  /* Modulus mod 8 */
-pub const RIADZ: isize = -3;  /* Z for hash-to-point */
-pub const RIADZG2: isize = -1;  /* G2 Z for hash-to-point */
+pub const RIADZ: isize = 11;  /* Z for hash-to-point */
+pub const RIADZG2A: isize = -2;  /* G2 Z for hash-to-point */
+pub const RIADZG2B: isize = -1;  /* G2 Z for hash-to-point */
 pub const MODTYPE:usize=NOT_SPECIAL;
 pub const QNRI:usize=0; /* Fp2 QNR 2^i+sqrt(-1) */
 pub const TOWER:usize=NEGATOWER; /* Tower type */

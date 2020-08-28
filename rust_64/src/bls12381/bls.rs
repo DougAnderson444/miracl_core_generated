@@ -28,7 +28,7 @@ use crate::bls12381::pair;
 use crate::bls12381::rom;
 use crate::hmac;
 
-/* BLS API Functions */
+/* Boneh-Lynn-Shacham signature 128-bit API Functions */
 
 /* Loosely (for now) following https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bls-signature-02 */
 
