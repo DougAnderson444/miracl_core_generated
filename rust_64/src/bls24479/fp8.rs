@@ -17,12 +17,16 @@
  * limitations under the License.
  */
 
+
 use crate::bls24479::fp;
 use crate::bls24479::fp::FP;
 use crate::bls24479::fp2::FP2;
 use crate::bls24479::fp4::FP4;
-
 use crate::rand::RAND;
+#[allow(unused_imports)]
+use crate::bls24479::big::BIG;
+#[allow(unused_imports)]
+use crate::bls24479::rom;
 
 #[derive(Copy, Clone)]
 pub struct FP8 {
@@ -340,7 +344,7 @@ impl FP8 {
     }
 
     /* self=1/self */
-    pub fn inverse(&mut self) {
+    pub fn inverse(&mut self,h:Option<&FP>) {
         //self.norm();
 
         let mut t1 = FP4::new_copy(&self.a);
@@ -352,7 +356,7 @@ impl FP8 {
         t2.norm();
         t1.sub(&t2);
         t1.norm();
-        t1.inverse();
+        t1.inverse(h);
         self.a.mul(&t1);
         t1.neg();
         t1.norm();
@@ -685,16 +689,18 @@ impl FP8 {
         self.copy(&r);
     }*/
 
-    pub fn qr(&mut self) -> isize {
+/* PFGE48S
+
+    pub fn qr(&mut self,h:Option<&mut FP>) -> isize {
         let mut c=FP8::new_copy(self);
         c.conj();
         c.mul(self);
-        return c.geta().qr();
+        return c.geta().qr(h);
     }
 
-    /* sqrt(a+ib) = sqrt(a+sqrt(a*a-n*b*b)/2)+ib/(2*sqrt(a+sqrt(a*a-n*b*b)/2)) */
-    /* returns true if this is QR */
-    pub fn sqrt(&mut self) {
+    // sqrt(a+ib) = sqrt(a+sqrt(a*a-n*b*b)/2)+ib/(2*sqrt(a+sqrt(a*a-n*b*b)/2)) 
+    // returns true if this is QR 
+    pub fn sqrt(&mut self,h:Option<&FP>) {
         if self.iszilch() {
             return;
         }
@@ -703,6 +709,7 @@ impl FP8 {
         let mut b = FP4::new_copy(&self.a);
         let mut s = FP4::new_copy(&self.b);
         let mut t = FP4::new_copy(&self.a);
+        let mut hint = FP::new();
 
         s.sqr();
         a.sqr();
@@ -712,34 +719,39 @@ impl FP8 {
 
         s.copy(&a); s.norm();
 
-        s.sqrt();
+        s.sqrt(h);
 
         a.copy(&t);
         a.add(&s);
         a.norm();
         a.div2();
 
-        b.copy(&t);
-        b.sub(&s);
-        b.norm();
-        b.div2();
 
-        let d=b.qr();
-        a.cmove(&b,d);
+        b.copy(&self.b); b.div2();
+        let qr=a.qr(Some(&mut hint));
 
-        a.sqrt();
-        t.copy(&self.b);
+// tweak hint - multiply old hint by Norm(1/Beta)^e where Beta is irreducible polynomial
         s.copy(&a);
-        s.add(&a); s.norm();
-        s.inverse();
+        let mut twk = FP::new_big(&BIG::new_ints(&rom::TWK));
+        twk.mul(&hint);
+        s.div_i(); s.norm();
 
-        t.mul(&s);
-        self.a.copy(&a);
-        self.b.copy(&t);
+        a.cmove(&s,1-qr);
+        hint.cmove(&twk,1-qr);
+
+        self.a.copy(&a); self.a.sqrt(Some(&hint));
+        s.copy(&a); s.inverse(Some(&hint));
+        s.mul(&self.a);
+        self.b.copy(&s); self.b.mul(&b);
+        t.copy(&self.a);
+
+        self.a.cmove(&self.b,1-qr);
+        self.b.cmove(&t,1-qr);
 
         let sgn=self.sign();
         let mut nr=FP8::new_copy(&self);
         nr.neg(); nr.norm();
         self.cmove(&nr,sgn); 
     }
+PFGE48F */
 }

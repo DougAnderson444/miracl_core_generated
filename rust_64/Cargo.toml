@@ -1,6 +1,6 @@
 [package]
 name = "miracl_core"
-version = "2.1.0"
+version = "2.3.0"
 authors = ["lovesh <lovesh.bond@gmail.com>"]
 edition = "2018"
 description = "Rust code for 64 bit generated from https://github.com/miracl/core"

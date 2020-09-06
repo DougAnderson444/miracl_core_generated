@@ -1,2 +1,3 @@
 rust_64/target
 rust_64/Cargo.lock
+rust_64/.vscode
