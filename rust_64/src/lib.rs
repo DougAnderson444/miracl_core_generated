@@ -77,6 +77,10 @@ pub mod c1174;
 pub mod c1665;
 #[cfg(feature = "mdc")]
 pub mod mdc;
+#[cfg(feature = "tweedledee")]
+pub mod tweedledee;
+#[cfg(feature = "tweedledum")]
+pub mod tweedledum;
 #[cfg(feature = "bn254")]
 pub mod bn254;
 #[cfg(feature = "bn254CX")]
