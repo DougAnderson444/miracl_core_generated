@@ -17,13 +17,27 @@
  * limitations under the License.
  */
 
-use crate::arch;
-use crate::arch::Chunk;
 use crate::anssi::big;
 use crate::anssi::big::BIG;
+use crate::arch;
+use crate::arch::Chunk;
 
 pub struct DBIG {
     pub w: [Chunk; big::DNLEN],
+}
+
+#[cfg(feature = "std")]
+impl std::fmt::Debug for DBIG {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "{}", self.tostring())
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::fmt::Display for DBIG {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "{}", self.tostring())
+    }
 }
 
 impl DBIG {
@@ -38,7 +52,7 @@ impl DBIG {
         for i in 0..big::DNLEN {
             s.w[i] = y.w[i]
         }
-        return s;
+        s
     }
 
     pub fn new_scopy(x: &BIG) -> DBIG {
@@ -52,7 +66,7 @@ impl DBIG {
         for i in big::NLEN + 1..big::DNLEN {
             b.w[i] = 0
         }
-        return b;
+        b
     }
 
     /* split DBIG at position n, return higher half, keep lower half */
@@ -67,7 +81,7 @@ impl DBIG {
             t.set(i + 1 - big::NLEN, nw);
         }
         self.w[big::NLEN - 1] &= ((1 as Chunk) << m) - 1;
-        return t;
+        t
     }
 
     /* general shift left */
@@ -150,10 +164,10 @@ impl DBIG {
         let mut gt = 0 as Chunk;
         let mut eq = 1 as Chunk;
         for i in (0..big::DNLEN).rev() {
-  		    gt |= ((b.w[i]-a.w[i]) >> big::BASEBITS) & eq;
-		    eq &= ((b.w[i]^a.w[i])-1) >> big::BASEBITS;
+            gt |= ((b.w[i] - a.w[i]) >> big::BASEBITS) & eq;
+            eq &= ((b.w[i] ^ a.w[i]) - 1) >> big::BASEBITS;
         }
-        return (gt+gt+eq-1) as isize;
+        (gt + gt + eq - 1) as isize
     }
 
     /* convert from byte array to BIG */
@@ -161,14 +175,14 @@ impl DBIG {
         let mut m = DBIG::new();
         for i in 0..(b.len()) {
             m.shl(8);
-            m.w[0] += (b[i] & 0xff) as Chunk;
+            m.w[0] += b[i] as Chunk;
         }
-        return m;
+        m
     }
 
     /* normalise BIG - force all digits < 2^big::BASEBITS */
     pub fn norm(&mut self) {
-        let mut carry  = self.w[0]>>big::BASEBITS;
+        let mut carry = self.w[0] >> big::BASEBITS;
         self.w[0] &= big::BMASK;
         for i in 1..big::DNLEN - 1 {
             let d = self.w[i] + carry;
@@ -211,8 +225,7 @@ impl DBIG {
 
             k -= 1;
         }
-        let r = BIG::new_dcopy(self);
-        return r;
+        BIG::new_dcopy(self)
     }
 
     /* return this/c */
@@ -247,11 +260,11 @@ impl DBIG {
 
             k -= 1;
         }
-        return a;
+        a
     }
 
     /* return number of bits */
-    pub fn nbits(&mut self) -> usize {
+    pub fn nbits(&self) -> usize {
         let mut k = big::DNLEN - 1;
         let mut s = DBIG::new_copy(&self);
         s.norm();
@@ -267,11 +280,12 @@ impl DBIG {
             c /= 2;
             bts += 1;
         }
-        return bts;
+        bts
     }
 
     /* Convert to Hex String */
-    pub fn tostring(&mut self) -> String {
+    #[cfg(feature = "std")]
+    pub fn tostring(&self) -> String {
         let mut s = String::new();
         let mut len = self.nbits();
 
@@ -287,6 +301,6 @@ impl DBIG {
             b.shr(i * 4);
             s = s + &format!("{:X}", b.w[0] & 15);
         }
-        return s;
+        s
     }
 }

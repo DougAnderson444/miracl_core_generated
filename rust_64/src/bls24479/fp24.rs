@@ -40,6 +40,20 @@ pub struct FP24 {
     stype: usize,
 }
 
+#[cfg(feature = "std")]
+impl std::fmt::Debug for FP24 {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "{}", self.tostring())
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::fmt::Display for FP24 {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "{}", self.tostring())
+    }
+}
+
 impl FP24 {
     pub fn new() -> FP24 {
         FP24 {
@@ -55,7 +69,7 @@ impl FP24 {
     }
 
     pub fn gettype(&self) -> usize {
-        return self.stype;
+        self.stype
     }
 
     pub fn new_int(a: isize) -> FP24 {
@@ -68,7 +82,7 @@ impl FP24 {
         } else {
             f.stype = SPARSEST;
         }
-        return f;
+        f
     }
 
     pub fn new_copy(x: &FP24) -> FP24 {
@@ -77,7 +91,7 @@ impl FP24 {
         f.b.copy(&x.b);
         f.c.copy(&x.c);
         f.stype = x.stype;
-        return f;
+        f
     }
 
     pub fn new_fp8s(d: &FP8, e: &FP8, f: &FP8) -> FP24 {
@@ -86,7 +100,7 @@ impl FP24 {
         g.b.copy(e);
         g.c.copy(f);
         g.stype = DENSE;
-        return g;
+        g
     }
 
     pub fn new_fp8(d: &FP8) -> FP24 {
@@ -95,7 +109,7 @@ impl FP24 {
         g.b.zero();
         g.c.zero();
         g.stype = SPARSEST;
-        return g;
+        g
     }
 
     /* reduce components mod Modulus */
@@ -114,7 +128,7 @@ impl FP24 {
 
     /* test self=0 ? */
     pub fn iszilch(&self) -> bool {
-        return self.a.iszilch() && self.b.iszilch() && self.c.iszilch();
+        self.a.iszilch() && self.b.iszilch() && self.c.iszilch()
     }
 
     /* Conditional move of g to self dependant on d */
@@ -131,7 +145,7 @@ impl FP24 {
     fn teq(b: i32, c: i32) -> isize {
         let mut x = b ^ c;
         x -= 1; // if x=0, x now -1
-        return ((x >> 31) & 1) as isize;
+        ((x >> 31) & 1) as isize
     }
 
     /* Constant time select from pre-computed table */
@@ -158,28 +172,28 @@ impl FP24 {
     /* test self=1 ? */
     pub fn isunity(&self) -> bool {
         let one = FP8::new_int(1);
-        return self.a.equals(&one) && self.b.iszilch() && self.c.iszilch();
+        self.a.equals(&one) && self.b.iszilch() && self.c.iszilch()
     }
 
     /* test self=x */
     pub fn equals(&self, x: &FP24) -> bool {
-        return self.a.equals(&x.a) && self.b.equals(&x.b) && self.c.equals(&x.c);
+        self.a.equals(&x.a) && self.b.equals(&x.b) && self.c.equals(&x.c)
     }
 
     pub fn geta(&mut self) -> FP8 {
-        return self.a;
+        self.a
         //        let f = FP8::new_copy(&self.a);
         //        return f;
     }
 
     pub fn getb(&mut self) -> FP8 {
-        return self.b;
+        self.b
         //	let f = FP8::new_copy(&self.b);
         //        return f;
     }
 
     pub fn getc(&mut self) -> FP8 {
-        return self.c;
+        self.c
         //        let f = FP8::new_copy(&self.c);
         //        return f;
     }
@@ -861,276 +875,61 @@ impl FP24 {
         t.copy(&self.a);
         t.imul(3);
         t.reduce();
-        return t;
+        t
     }
 
     /* convert from byte array to FP24 */
     pub fn frombytes(w: &[u8]) -> FP24 {
-        let mut t: [u8; big::MODBYTES as usize] = [0; big::MODBYTES as usize];
-        let mb = big::MODBYTES as usize;
-
-        for i in 0..mb {
-            t[i] = w[i]
+        const MB: usize = 8 * (big::MODBYTES as usize);
+        let mut t: [u8; MB] = [0; MB];
+        for i in 0..MB {
+            t[i] = w[i];
         }
-        let mut a = BIG::frombytes(&t);
-        for i in 0..mb {
-            t[i] = w[i + mb]
+        let c = FP8::frombytes(&t);
+        for i in 0..MB {
+            t[i] = w[i + MB];
         }
-        let mut b = BIG::frombytes(&t);
-        let mut c = FP2::new_bigs(&a, &b);
-
-        for i in 0..mb {
-            t[i] = w[i + 2 * mb]
+        let b = FP8::frombytes(&t);
+        for i in 0..MB {
+            t[i] = w[i + 2 * MB];
         }
-        a.copy(&BIG::frombytes(&t));
-        for i in 0..mb {
-            t[i] = w[i + 3 * mb]
-        }
-        b.copy(&BIG::frombytes(&t));
-        let mut d = FP2::new_bigs(&a, &b);
-
-        let mut ea = FP4::new_fp2s(&c, &d);
-
-        for i in 0..mb {
-            t[i] = w[i + 4 * mb]
-        }
-        a.copy(&BIG::frombytes(&t));
-        for i in 0..mb {
-            t[i] = w[i + 5 * mb]
-        }
-        b.copy(&BIG::frombytes(&t));
-        c.copy(&FP2::new_bigs(&a, &b));
-
-        for i in 0..mb {
-            t[i] = w[i + 6 * mb]
-        }
-        a.copy(&BIG::frombytes(&t));
-        for i in 0..mb {
-            t[i] = w[i + 7 * mb]
-        }
-        b.copy(&BIG::frombytes(&t));
-        d.copy(&FP2::new_bigs(&a, &b));
-
-        let mut eb = FP4::new_fp2s(&c, &d);
-
-        let e = FP8::new_fp4s(&ea, &eb);
-
-        for i in 0..mb {
-            t[i] = w[i + 8 * mb]
-        }
-        a.copy(&BIG::frombytes(&t));
-        for i in 0..mb {
-            t[i] = w[i + 9 * mb]
-        }
-        b.copy(&BIG::frombytes(&t));
-        c.copy(&FP2::new_bigs(&a, &b));
-
-        for i in 0..mb {
-            t[i] = w[i + 10 * mb]
-        }
-        a.copy(&BIG::frombytes(&t));
-        for i in 0..mb {
-            t[i] = w[i + 11 * mb]
-        }
-        b.copy(&BIG::frombytes(&t));
-        d.copy(&FP2::new_bigs(&a, &b));
-
-        ea.copy(&FP4::new_fp2s(&c, &d));
-
-        for i in 0..mb {
-            t[i] = w[i + 12 * mb]
-        }
-        a.copy(&BIG::frombytes(&t));
-        for i in 0..mb {
-            t[i] = w[i + 13 * mb]
-        }
-        b.copy(&BIG::frombytes(&t));
-        c.copy(&FP2::new_bigs(&a, &b));
-
-        for i in 0..mb {
-            t[i] = w[i + 14 * mb]
-        }
-        a.copy(&BIG::frombytes(&t));
-        for i in 0..mb {
-            t[i] = w[i + 15 * mb]
-        }
-        b.copy(&BIG::frombytes(&t));
-        d.copy(&FP2::new_bigs(&a, &b));
-
-        eb.copy(&FP4::new_fp2s(&c, &d));
-
-        let f = FP8::new_fp4s(&ea, &eb);
-
-        for i in 0..mb {
-            t[i] = w[i + 16 * mb]
-        }
-        a.copy(&BIG::frombytes(&t));
-        for i in 0..mb {
-            t[i] = w[i + 17 * mb]
-        }
-        b.copy(&BIG::frombytes(&t));
-
-        c.copy(&FP2::new_bigs(&a, &b));
-
-        for i in 0..mb {
-            t[i] = w[i + 18 * mb]
-        }
-        a.copy(&BIG::frombytes(&t));
-        for i in 0..mb {
-            t[i] = w[i + 19 * mb]
-        }
-        b.copy(&BIG::frombytes(&t));
-        d.copy(&FP2::new_bigs(&a, &b));
-
-        ea.copy(&FP4::new_fp2s(&c, &d));
-
-        for i in 0..mb {
-            t[i] = w[i + 20 * mb]
-        }
-        a.copy(&BIG::frombytes(&t));
-        for i in 0..mb {
-            t[i] = w[i + 21 * mb]
-        }
-        b.copy(&BIG::frombytes(&t));
-
-        c.copy(&FP2::new_bigs(&a, &b));
-
-        for i in 0..mb {
-            t[i] = w[i + 22 * mb]
-        }
-        a.copy(&BIG::frombytes(&t));
-        for i in 0..mb {
-            t[i] = w[i + 23 * mb]
-        }
-        b.copy(&BIG::frombytes(&t));
-        d.copy(&FP2::new_bigs(&a, &b));
-
-        eb.copy(&FP4::new_fp2s(&c, &d));
-
-        let g = FP8::new_fp4s(&ea, &eb);
-
-        return FP24::new_fp8s(&e, &f, &g);
+        let a = FP8::frombytes(&t);
+        FP24::new_fp8s(&a, &b, &c)
     }
 
     /* convert this to byte array */
     pub fn tobytes(&mut self, w: &mut [u8]) {
-        let mut t: [u8; big::MODBYTES as usize] = [0; big::MODBYTES as usize];
-        let mb = big::MODBYTES as usize;
+        const MB: usize = 8 * (big::MODBYTES as usize);
+        let mut t: [u8; MB] = [0; MB];
 
-        self.a.geta().geta().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i] = t[i]
+        self.c.tobytes(&mut t);
+        for i in 0..MB {
+            w[i] = t[i];
         }
-        self.a.geta().geta().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + mb] = t[i]
+        self.b.tobytes(&mut t);
+        for i in 0..MB {
+            w[i + MB] = t[i];
         }
-        self.a.geta().getb().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 2 * mb] = t[i]
-        }
-        self.a.geta().getb().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 3 * mb] = t[i]
-        }
-
-        self.a.getb().geta().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 4 * mb] = t[i]
-        }
-        self.a.getb().geta().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 5 * mb] = t[i]
-        }
-        self.a.getb().getb().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 6 * mb] = t[i]
-        }
-        self.a.getb().getb().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 7 * mb] = t[i]
-        }
-
-        self.b.geta().geta().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 8 * mb] = t[i]
-        }
-        self.b.geta().geta().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 9 * mb] = t[i]
-        }
-        self.b.geta().getb().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 10 * mb] = t[i]
-        }
-        self.b.geta().getb().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 11 * mb] = t[i]
-        }
-
-        self.b.getb().geta().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 12 * mb] = t[i]
-        }
-        self.b.getb().geta().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 13 * mb] = t[i]
-        }
-        self.b.getb().getb().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 14 * mb] = t[i]
-        }
-        self.b.getb().getb().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 15 * mb] = t[i]
-        }
-
-        self.c.geta().geta().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 16 * mb] = t[i]
-        }
-        self.c.geta().geta().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 17 * mb] = t[i]
-        }
-        self.c.geta().getb().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 18 * mb] = t[i]
-        }
-        self.c.geta().getb().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 19 * mb] = t[i]
-        }
-
-        self.c.getb().geta().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 20 * mb] = t[i]
-        }
-        self.c.getb().geta().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 21 * mb] = t[i]
-        }
-        self.c.getb().getb().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 22 * mb] = t[i]
-        }
-        self.c.getb().getb().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 23 * mb] = t[i]
+        self.a.tobytes(&mut t);
+        for i in 0..MB {
+            w[i + 2 * MB] = t[i];
         }
     }
 
     /* output to hex string */
+    #[cfg(feature = "std")]
     pub fn tostring(&self) -> String {
-        return format!(
+        format!(
             "[{},{},{}]",
             self.a.tostring(),
             self.b.tostring(),
             self.c.tostring()
-        );
+        )
     }
 
-    /* self=self^e */
+    /* Note this is simple square and multiply, so not side-channel safe */
+    /* But fast for final exponentiation where exponent is not a secret */
+    /* return this^e */
     pub fn pow(&self, e: &BIG) -> FP24 {
         let mut r = FP24::new_copy(self);
         r.norm();
@@ -1140,7 +939,10 @@ impl FP24 {
         e3.pmul(3);
         e3.norm();
         let mut w = FP24::new_copy(&r);
-
+        if e3.iszilch() {
+            w.one();
+            return w;
+        }
         let nb = e3.nbits();
         for i in (1..nb - 1).rev() {
             w.usqr();
@@ -1156,7 +958,7 @@ impl FP24 {
         }
 
         w.reduce();
-        return w;
+        w
     }
 
     /* constant time powering by small integer of max length bts */
@@ -1172,43 +974,43 @@ impl FP24 {
         }
         self.copy(&r[0]);
     }
-/*
-    pub fn compow(&mut self, e: &BIG, r: &BIG) -> FP8 {
-        let f = FP2::new_bigs(&BIG::new_ints(&rom::FRA), &BIG::new_ints(&rom::FRB));
-        let q = BIG::new_ints(&rom::MODULUS);
+    /*
+        pub fn compow(&mut self, e: &BIG, r: &BIG) -> FP8 {
+            let f = FP2::new_bigs(&BIG::new_ints(&rom::FRA), &BIG::new_ints(&rom::FRB));
+            let q = BIG::new_ints(&rom::MODULUS);
 
-        let mut g1 = FP24::new_copy(self);
-        let mut g2 = FP24::new_copy(self);
+            let mut g1 = FP24::new_copy(self);
+            let mut g2 = FP24::new_copy(self);
 
-        let mut m = BIG::new_copy(&q);
-        m.rmod(&r);
+            let mut m = BIG::new_copy(&q);
+            m.rmod(&r);
 
-        let mut a = BIG::new_copy(&e);
-        a.rmod(&mut m);
+            let mut a = BIG::new_copy(&e);
+            a.rmod(&mut m);
 
-        let mut b = BIG::new_copy(&e);
-        b.div(&mut m);
+            let mut b = BIG::new_copy(&e);
+            b.div(&mut m);
 
-        let mut c = g1.trace();
+            let mut c = g1.trace();
 
-        if b.iszilch() {
-            c = c.xtr_pow(&mut a);
+            if b.iszilch() {
+                c = c.xtr_pow(&mut a);
+                return c;
+            }
+
+            g2.frob(&f, 1);
+            let cp = g2.trace();
+            g1.conj();
+            g2.mul(&g1);
+            let cpm1 = g2.trace();
+            g2.mul(&g1);
+            let cpm2 = g2.trace();
+
+            c = c.xtr_pow2(&cp, &cpm1, &cpm2, &mut a, &mut b);
+
             return c;
         }
-
-        g2.frob(&f, 1);
-        let cp = g2.trace();
-        g1.conj();
-        g2.mul(&g1);
-        let cpm1 = g2.trace();
-        g2.mul(&g1);
-        let cpm2 = g2.trace();
-
-        c = c.xtr_pow2(&cp, &cpm1, &cpm2, &mut a, &mut b);
-
-        return c;
-    }
-*/
+    */
     /* p=q0^u0.q1^u1.q2^u2.q3^u3... */
     // Bos & Costello https://eprint.iacr.org/2013/458.pdf
     // Faz-Hernandez & Longa & Sanchez  https://eprint.iacr.org/2013/158.pdf
@@ -1381,6 +1183,6 @@ impl FP24 {
         p.cmove(&r, pb2);
 
         p.reduce();
-        return p;
+        p
     }
 }

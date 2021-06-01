@@ -212,28 +212,28 @@ const IROOTS: [i32; 1024] = [
 ];
 
 fn round(a: i32, b: i32) -> i32 {
-    return (a + b / 2) / b;
+    (a + b / 2) / b
 }
 
 /* Constant time absolute value */
 fn nabs(x: i32) -> i32 {
     let mask = x >> 31;
-    return (x + mask) ^ mask;
+    (x + mask) ^ mask
 }
 
 /* Montgomery stuff */
 
 fn redc(t: u64) -> i32 {
     let m = (t as u32).wrapping_mul(ND);
-    return (((m as u64) * (PRIME as u64) + t) >> WL) as i32;
+    (((m as u64) * (PRIME as u64) + t) >> WL) as i32
 }
 
 fn nres(x: i32) -> i32 {
-    return redc((x as u64) * R2MODP);
+    redc((x as u64) * R2MODP)
 }
 
 fn modmul(a: i32, b: i32) -> i32 {
-    return redc((a as u64) * (b as u64));
+    redc((a as u64) * (b as u64))
 }
 
 /* Cooley-Tukey NTT */
@@ -399,13 +399,13 @@ fn nhs_unpack(array: &[u8], poly: &mut [i32]) {
     let mut j = 0;
     let mut i = 0;
     while i < DEGREE {
-        let a = ((array[j]) & 0xff) as i32;
-        let b = ((array[j + 1]) & 0xff) as i32;
-        let c = ((array[j + 2]) & 0xff) as i32;
-        let d = ((array[j + 3]) & 0xff) as i32;
-        let e = ((array[j + 4]) & 0xff) as i32;
-        let f = ((array[j + 5]) & 0xff) as i32;
-        let g = ((array[j + 6]) & 0xff) as i32;
+        let a = array[j] as i32;
+        let b = array[j + 1] as i32;
+        let c = array[j + 2] as i32;
+        let d = array[j + 3] as i32;
+        let e = array[j + 4] as i32;
+        let f = array[j + 5] as i32;
+        let g = array[j + 6] as i32;
         j += 7;
         poly[i] = a | ((b & 0x3f) << 8);
         poly[i + 1] = (b >> 6) | (c << 2) | ((d & 0xf) << 10);
@@ -454,7 +454,7 @@ fn decompress(array: &[u8], poly: &mut [i32]) {
 
 /* generate centered binomial distribution */
 
-fn error(rng: &mut RAND, poly: &mut [i32]) {
+fn error(rng: &mut impl RAND, poly: &mut [i32]) {
     for i in 0..DEGREE {
         let mut n1 = ((rng.getbyte() as i32) & 0xff) + (((rng.getbyte() as i32) & 0xff) << 8);
         let mut n2 = ((rng.getbyte() as i32) & 0xff) + (((rng.getbyte() as i32) & 0xff) << 8);
@@ -488,7 +488,7 @@ fn poly_mul(p1: &mut [i32], p3: &[i32]) {
 
 fn poly_add(p1: &mut [i32], p3: &[i32]) {
     for i in 0..DEGREE {
-        p1[i] = p1[i] + p3[i];
+        p1[i] += p3[i];
     }
 }
 
@@ -510,14 +510,14 @@ fn poly_soft_reduce(poly: &mut [i32]) {
 fn poly_hard_reduce(poly: &mut [i32]) {
     for i in 0..DEGREE {
         let mut e = modmul(poly[i], ONE);
-        e = e - PRIME;
+        e -= PRIME;
         poly[i] = e + ((e >> (WL - 1)) & PRIME);
     }
 }
 
 /* API files */
 
-pub fn server_1(mut rng: &mut RAND, sb: &mut [u8], ss: &mut [u8]) {
+pub fn server_1(rng: &mut impl RAND, sb: &mut [u8], ss: &mut [u8]) {
     let mut seed: [u8; 32] = [0; 32];
     let mut array: [u8; 1792] = [0; 1792];
     let mut s: [i32; DEGREE] = [0; DEGREE];
@@ -530,8 +530,8 @@ pub fn server_1(mut rng: &mut RAND, sb: &mut [u8], ss: &mut [u8]) {
 
     parse(&seed, &mut b);
 
-    error(&mut rng, &mut e);
-    error(&mut rng, &mut s);
+    error(rng, &mut e);
+    error(rng, &mut s);
 
     ntt(&mut s);
     ntt(&mut e);
@@ -558,7 +558,7 @@ pub fn server_1(mut rng: &mut RAND, sb: &mut [u8], ss: &mut [u8]) {
     }
 }
 
-pub fn client(mut rng: &mut RAND, sb: &[u8], uc: &mut [u8], okey: &mut [u8]) {
+pub fn client(rng: &mut impl RAND, sb: &[u8], uc: &mut [u8], okey: &mut [u8]) {
     let mut sh = SHA3::new(sha3::HASH256);
 
     let mut seed: [u8; 32] = [0; 32];
@@ -572,8 +572,8 @@ pub fn client(mut rng: &mut RAND, sb: &[u8], uc: &mut [u8], okey: &mut [u8]) {
     let mut k: [i32; DEGREE] = [0; DEGREE];
     let mut c: [i32; DEGREE] = [0; DEGREE];
 
-    error(&mut rng, &mut sd);
-    error(&mut rng, &mut ed);
+    error(rng, &mut sd);
+    error(rng, &mut ed);
 
     ntt(&mut sd);
     ntt(&mut ed);
@@ -608,7 +608,7 @@ pub fn client(mut rng: &mut RAND, sb: &[u8], uc: &mut [u8], okey: &mut [u8]) {
 
     poly_mul(&mut c, &sd);
     intt(&mut c);
-    error(&mut rng, &mut ed);
+    error(rng, &mut ed);
     poly_add(&mut c, &ed);
     poly_add(&mut c, &k);
 

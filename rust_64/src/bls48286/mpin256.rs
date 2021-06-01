@@ -19,14 +19,14 @@
 
 use crate::bls48286::big;
 use crate::bls48286::big::BIG;
+use crate::bls48286::dbig::DBIG;
 use crate::bls48286::ecp;
 use crate::bls48286::ecp::ECP;
 use crate::bls48286::ecp8::ECP8;
+use crate::bls48286::fp::FP;
 use crate::bls48286::fp48::FP48;
 use crate::bls48286::pair8;
 use crate::bls48286::rom;
-use crate::bls48286::fp::FP;
-use crate::bls48286::dbig::DBIG;
 
 use crate::hmac;
 use crate::rand::RAND;
@@ -50,37 +50,37 @@ pub const SHA512: usize = 64;
 pub const MAXPIN: i32 = 10000; /* PIN less than this */
 pub const PBLEN: i32 = 14; /* Number of bits in PIN */
 
-fn ceil(a: usize,b: usize) -> usize {
-    return (a-1)/b+1;
+fn ceil(a: usize, b: usize) -> usize {
+    (a - 1) / b + 1
 }
 
 #[allow(non_snake_case)]
-pub fn encode_to_curve(dst: &[u8],id: &[u8],hcid: &mut [u8]) {
+pub fn encode_to_curve(dst: &[u8], id: &[u8], hcid: &mut [u8]) {
     let q = BIG::new_ints(&rom::MODULUS);
-    let k=q.nbits();
+    let k = q.nbits();
     let r = BIG::new_ints(&rom::CURVE_ORDER);
-    let m=r.nbits();
-    let el=ceil(k+ceil(m,2),8);
-    let mut okm: [u8;512]=[0;512];
-    hmac::xmd_expand(hmac::MC_SHA2,ecp::HASH_TYPE,&mut okm,el,&dst,&id);
-    let mut fd: [u8;256]=[0;256];
+    let m = r.nbits();
+    let el = ceil(k + ceil(m, 2), 8);
+    let mut okm: [u8; 512] = [0; 512];
+    hmac::xmd_expand(hmac::MC_SHA2, ecp::HASH_TYPE, &mut okm, el, &dst, &id);
+    let mut fd: [u8; 256] = [0; 256];
     for j in 0..el {
-        fd[j]=okm[j];
+        fd[j] = okm[j];
     }
-	let mut dx=DBIG::frombytes(&fd[0..el]);
-    let u=FP::new_big(&dx.dmod(&q));
-    let mut P=ECP::map2point(&u);
+    let mut dx = DBIG::frombytes(&fd[0..el]);
+    let u = FP::new_big(&dx.dmod(&q));
+    let mut P = ECP::map2point(&u);
     P.cfp();
-    P.affine(); 
-    P.tobytes(hcid,false);
+    P.affine();
+    P.tobytes(hcid, false);
 }
 
 /* create random secret S */
-pub fn random_generate(mut rng: &mut RAND, s: &mut [u8]) -> isize {
+pub fn random_generate(rng: &mut impl RAND, s: &mut [u8]) -> isize {
     let r = BIG::new_ints(&rom::CURVE_ORDER);
-    let mut sc = BIG::randtrunc(&r, 16 * ecp::AESKEY, &mut rng);
+    let sc = BIG::randtrunc(&r, 16 * ecp::AESKEY, rng);
     sc.tobytes(s);
-    return 0;
+    0
 }
 
 /* Extract PIN from TOKEN for identity CID */
@@ -95,10 +95,10 @@ pub fn extract_pin(cid: &[u8], pin: i32, token: &mut [u8]) -> isize {
         return INVALID_POINT;
     }
 
-    R = R.pinmul(pin%MAXPIN, PBLEN);
+    R = R.pinmul(pin % MAXPIN, PBLEN);
     P.sub(&mut R);
     P.tobytes(token, false);
-    return 0;
+    0
 }
 
 /* Implement step 2 on client side of MPin protocol */
@@ -118,34 +118,34 @@ pub fn client_2(x: &[u8], y: &[u8], sec: &mut [u8]) -> isize {
     P = pair8::g1mul(&P, &px);
     P.neg();
     P.tobytes(sec, false);
-    return 0;
+    0
 }
 
 /* Client secret CST=S*H(CID) where CID is client ID and S is master secret */
 #[allow(non_snake_case)]
 pub fn get_client_secret(s: &mut [u8], idhtc: &[u8], cst: &mut [u8]) -> isize {
-    let sx=BIG::frombytes(s);
-    let P=ECP::frombytes(idhtc);
+    let sx = BIG::frombytes(s);
+    let P = ECP::frombytes(idhtc);
     if P.is_infinity() {
         return INVALID_POINT;
     }
     pair8::g1mul(&P, &sx).tobytes(cst, false);
-    return 0;
+    0
 }
 
 /* Implement step 1 on client side of MPin protocol */
 #[allow(non_snake_case)]
 pub fn client_1(
     cid: &[u8],
-    rng: Option<&mut RAND>,
+    rng: Option<&mut impl RAND>,
     x: &mut [u8],
     pin: usize,
     token: &[u8],
     sec: &mut [u8],
-    xid: &mut [u8]
+    xid: &mut [u8],
 ) -> isize {
     let r = BIG::new_ints(&rom::CURVE_ORDER);
-    let mut sx: BIG;
+    let sx: BIG;
 
     if let Some(rd) = rng {
         sx = BIG::randtrunc(&r, 16 * ecp::AESKEY, rd);
@@ -153,7 +153,7 @@ pub fn client_1(
     } else {
         sx = BIG::frombytes(x);
     }
-    let mut P=ECP::frombytes(cid);
+    let mut P = ECP::frombytes(cid);
     if P.is_infinity() {
         return INVALID_POINT;
     }
@@ -170,9 +170,8 @@ pub fn client_1(
     P.tobytes(xid, false);
 
     T.tobytes(sec, false);
-    return 0;
+    0
 }
-
 
 /* Extract Server Secret SST=S*Q where Q is fixed generator in G2 and S is master secret */
 #[allow(non_snake_case)]
@@ -180,19 +179,13 @@ pub fn get_server_secret(s: &[u8], sst: &mut [u8]) -> isize {
     let mut Q = ECP8::generator();
     let sc = BIG::frombytes(s);
     Q = pair8::g2mul(&Q, &sc);
-    Q.tobytes(sst,false);
-    return 0;
+    Q.tobytes(sst, false);
+    0
 }
 
 /* Implement step 2 of MPin protocol on server side */
 #[allow(non_snake_case)]
-pub fn server(
-    hid: &[u8],
-    y: &[u8],
-    sst: &[u8],
-    xid: &[u8],
-    msec: &[u8],
-) -> isize {
+pub fn server(hid: &[u8], y: &[u8], sst: &[u8], xid: &[u8], msec: &[u8]) -> isize {
     let Q = ECP8::generator();
     let sQ = ECP8::frombytes(&sst);
     if sQ.is_infinity() {
@@ -223,5 +216,5 @@ pub fn server(
     if !g.isunity() {
         return BAD_PIN;
     }
-    return 0;
+    0
 }

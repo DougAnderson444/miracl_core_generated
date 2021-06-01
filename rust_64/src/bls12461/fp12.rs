@@ -40,6 +40,20 @@ pub struct FP12 {
     stype: usize,
 }
 
+#[cfg(feature = "std")]
+impl std::fmt::Debug for FP12 {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "{}", self.tostring())
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::fmt::Display for FP12 {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "{}", self.tostring())
+    }
+}
+
 impl FP12 {
     pub fn new() -> FP12 {
         FP12 {
@@ -55,7 +69,7 @@ impl FP12 {
     }
 
     pub fn gettype(&self) -> usize {
-        return self.stype;
+        self.stype
     }
 
     pub fn new_int(a: isize) -> FP12 {
@@ -68,7 +82,7 @@ impl FP12 {
         } else {
             f.stype = SPARSEST;
         }
-        return f;
+        f
     }
 
     pub fn new_copy(x: &FP12) -> FP12 {
@@ -77,7 +91,7 @@ impl FP12 {
         f.b.copy(&x.b);
         f.c.copy(&x.c);
         f.stype = x.stype;
-        return f;
+        f
     }
 
     pub fn new_fp4s(d: &FP4, e: &FP4, f: &FP4) -> FP12 {
@@ -86,7 +100,7 @@ impl FP12 {
         g.b.copy(e);
         g.c.copy(f);
         g.stype = DENSE;
-        return g;
+        g
     }
 
     pub fn new_fp4(d: &FP4) -> FP12 {
@@ -95,7 +109,7 @@ impl FP12 {
         g.b.zero();
         g.c.zero();
         g.stype = SPARSEST;
-        return g;
+        g
     }
 
     /* reduce components mod Modulus */
@@ -115,7 +129,7 @@ impl FP12 {
     /* test self=0 ? */
     pub fn iszilch(&self) -> bool {
         //self.reduce();
-        return self.a.iszilch() && self.b.iszilch() && self.c.iszilch();
+        self.a.iszilch() && self.b.iszilch() && self.c.iszilch()
     }
 
     /* Conditional move of g to self dependant on d */
@@ -132,7 +146,7 @@ impl FP12 {
     fn teq(b: i32, c: i32) -> isize {
         let mut x = b ^ c;
         x -= 1; // if x=0, x now -1
-        return ((x >> 31) & 1) as isize;
+        ((x >> 31) & 1) as isize
     }
 
     /* Constant time select from pre-computed table */
@@ -159,28 +173,28 @@ impl FP12 {
     /* test self=1 ? */
     pub fn isunity(&self) -> bool {
         let one = FP4::new_int(1);
-        return self.a.equals(&one) && self.b.iszilch() && self.c.iszilch();
+        self.a.equals(&one) && self.b.iszilch() && self.c.iszilch()
     }
 
     /* test self=x */
     pub fn equals(&self, x: &FP12) -> bool {
-        return self.a.equals(&x.a) && self.b.equals(&x.b) && self.c.equals(&x.c);
+        self.a.equals(&x.a) && self.b.equals(&x.b) && self.c.equals(&x.c)
     }
 
     pub fn geta(&mut self) -> FP4 {
-        return self.a;
+        self.a
         //        let f = FP4::new_copy(&self.a);
         //        return f;
     }
 
     pub fn getb(&mut self) -> FP4 {
-        return self.b;
+        self.b
         //        let f = FP4::new_copy(&self.b);
         //        return f;
     }
 
     pub fn getc(&mut self) -> FP4 {
-        return self.c;
+        self.c
         //        let f = FP4::new_copy(&self.c);
         //        return f;
     }
@@ -310,7 +324,7 @@ impl FP12 {
     pub fn mul(&mut self, y: &FP12) {
         let mut z0 = FP4::new_copy(&self.a);
         let mut z1 = FP4::new();
-        let mut z2 = FP4::new_copy(&mut self.b);
+        let mut z2 = FP4::new_copy(&self.b);
         let mut z3 = FP4::new();
         let mut t0 = FP4::new_copy(&self.a);
         let mut t1 = FP4::new_copy(&y.a);
@@ -639,14 +653,12 @@ impl FP12 {
                     let mut t = FP::new_copy(&self.b.geta().getA());
                     t.mul(&y.b.geta().getA());
                     w3 = FP2::new_fp(&t);
+                } else if y.stype != SPARSEST {
+                    w3 = FP2::new_copy(&y.b.geta());
+                    w3.pmul(&self.b.geta().getA());
                 } else {
-                    if y.stype != SPARSEST {
-                        w3 = FP2::new_copy(&y.b.geta());
-                        w3.pmul(&self.b.geta().getA());
-                    } else {
-                        w3 = FP2::new_copy(&self.b.geta());
-                        w3.pmul(&y.b.geta().getA());
-                    }
+                    w3 = FP2::new_copy(&self.b.geta());
+                    w3.pmul(&y.b.geta().getA());
                 }
             } else {
                 w3 = FP2::new_copy(&self.b.geta());
@@ -714,14 +726,12 @@ impl FP12 {
                     let mut t = FP::new_copy(&self.c.getb().getA());
                     t.mul(&y.c.getb().getA());
                     w3 = FP2::new_fp(&t);
+                } else if y.stype != SPARSEST {
+                    w3 = FP2::new_copy(&y.c.getb());
+                    w3.pmul(&self.c.getb().getA());
                 } else {
-                    if y.stype != SPARSEST {
-                        w3 = FP2::new_copy(&y.c.getb());
-                        w3.pmul(&self.c.getb().getA());
-                    } else {
-                        w3 = FP2::new_copy(&self.c.getb());
-                        w3.pmul(&y.c.getb().getA());
-                    }
+                    w3 = FP2::new_copy(&self.c.getb());
+                    w3.pmul(&y.c.getb().getA());
                 }
             } else {
                 w3 = FP2::new_copy(&self.c.getb());
@@ -855,152 +865,61 @@ impl FP12 {
         t.copy(&self.a);
         t.imul(3);
         t.reduce();
-        return t;
+        t
     }
 
     /* convert from byte array to FP12 */
     pub fn frombytes(w: &[u8]) -> FP12 {
-        let mut t: [u8; big::MODBYTES as usize] = [0; big::MODBYTES as usize];
-        let mb = big::MODBYTES as usize;
-
-        for i in 0..mb {
-            t[i] = w[i]
+        const MB: usize = 4 * (big::MODBYTES as usize);
+        let mut t: [u8; MB] = [0; MB];
+        for i in 0..MB {
+            t[i] = w[i];
         }
-        let mut a = BIG::frombytes(&t);
-        for i in 0..mb {
-            t[i] = w[i + mb]
+        let c = FP4::frombytes(&t);
+        for i in 0..MB {
+            t[i] = w[i + MB];
         }
-        let mut b = BIG::frombytes(&t);
-        let mut c = FP2::new_bigs(&a, &b);
-
-        for i in 0..mb {
-            t[i] = w[i + 2 * mb]
+        let b = FP4::frombytes(&t);
+        for i in 0..MB {
+            t[i] = w[i + 2 * MB];
         }
-        a = BIG::frombytes(&t);
-        for i in 0..mb {
-            t[i] = w[i + 3 * mb]
-        }
-        b = BIG::frombytes(&t);
-        let mut d = FP2::new_bigs(&a, &b);
-
-        let e = FP4::new_fp2s(&c, &d);
-
-        for i in 0..mb {
-            t[i] = w[i + 4 * mb]
-        }
-        a = BIG::frombytes(&t);
-        for i in 0..mb {
-            t[i] = w[i + 5 * mb]
-        }
-        b = BIG::frombytes(&t);
-        c = FP2::new_bigs(&a, &b);
-
-        for i in 0..mb {
-            t[i] = w[i + 6 * mb]
-        }
-        a = BIG::frombytes(&t);
-        for i in 0..mb {
-            t[i] = w[i + 7 * mb]
-        }
-        b = BIG::frombytes(&t);
-        d = FP2::new_bigs(&a, &b);
-
-        let f = FP4::new_fp2s(&c, &d);
-
-        for i in 0..mb {
-            t[i] = w[i + 8 * mb]
-        }
-        a = BIG::frombytes(&t);
-        for i in 0..mb {
-            t[i] = w[i + 9 * mb]
-        }
-        b = BIG::frombytes(&t);
-
-        c = FP2::new_bigs(&a, &b);
-
-        for i in 0..mb {
-            t[i] = w[i + 10 * mb]
-        }
-        a = BIG::frombytes(&t);
-        for i in 0..mb {
-            t[i] = w[i + 11 * mb]
-        }
-        b = BIG::frombytes(&t);
-        d = FP2::new_bigs(&a, &b);
-
-        let g = FP4::new_fp2s(&c, &d);
-
-        return FP12::new_fp4s(&e, &f, &g);
+        let a = FP4::frombytes(&t);
+        FP12::new_fp4s(&a, &b, &c)
     }
 
     /* convert this to byte array */
     pub fn tobytes(&mut self, w: &mut [u8]) {
-        let mut t: [u8; big::MODBYTES as usize] = [0; big::MODBYTES as usize];
-        let mb = big::MODBYTES as usize;
+        const MB: usize = 4 * (big::MODBYTES as usize);
+        let mut t: [u8; MB] = [0; MB];
 
-        self.a.geta().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i] = t[i]
+        self.c.tobytes(&mut t);
+        for i in 0..MB {
+            w[i] = t[i];
         }
-        self.a.geta().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + mb] = t[i]
+        self.b.tobytes(&mut t);
+        for i in 0..MB {
+            w[i + MB] = t[i];
         }
-        self.a.getb().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 2 * mb] = t[i]
-        }
-        self.a.getb().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 3 * mb] = t[i]
-        }
-
-        self.b.geta().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 4 * mb] = t[i]
-        }
-        self.b.geta().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 5 * mb] = t[i]
-        }
-        self.b.getb().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 6 * mb] = t[i]
-        }
-        self.b.getb().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 7 * mb] = t[i]
-        }
-
-        self.c.geta().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 8 * mb] = t[i]
-        }
-        self.c.geta().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 9 * mb] = t[i]
-        }
-        self.c.getb().geta().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 10 * mb] = t[i]
-        }
-        self.c.getb().getb().tobytes(&mut t);
-        for i in 0..mb {
-            w[i + 11 * mb] = t[i]
+        self.a.tobytes(&mut t);
+        for i in 0..MB {
+            w[i + 2 * MB] = t[i];
         }
     }
 
     /* output to hex string */
+    #[cfg(feature = "std")]
     pub fn tostring(&self) -> String {
-        return format!(
+        format!(
             "[{},{},{}]",
             self.a.tostring(),
             self.b.tostring(),
             self.c.tostring()
-        );
+        )
     }
 
-    /* self=self^e */
+    /* Note this is simple square and multiply, so not side-channel safe */
+    /* But fast for final exponentiation where exponent is not a secret */
+    /* return this^e */
     pub fn pow(&self, e: &BIG) -> FP12 {
         let mut r = FP12::new_copy(self);
         r.norm();
@@ -1010,6 +929,10 @@ impl FP12 {
         e3.pmul(3);
         e3.norm();
         let mut w = FP12::new_copy(&r);
+        if e3.iszilch() {
+            w.one();
+            return w;
+        }
 
         let nb = e3.nbits();
         for i in (1..nb - 1).rev() {
@@ -1026,7 +949,7 @@ impl FP12 {
         }
 
         w.reduce();
-        return w;
+        w
     }
 
     /* constant time powering by small integer of max length bts */
@@ -1054,15 +977,15 @@ impl FP12 {
         m.rmod(&r);
 
         let mut a = BIG::new_copy(&e);
-        a.rmod(&mut m);
+        a.rmod(&m);
 
         let mut b = BIG::new_copy(&e);
-        b.div(&mut m);
+        b.div(&m);
 
         let mut c = g1.trace();
 
         if b.iszilch() {
-            c = c.xtr_pow(&mut a);
+            c = c.xtr_pow(&a);
             return c;
         }
 
@@ -1074,9 +997,7 @@ impl FP12 {
         g2.mul(&g1);
         let cpm2 = g2.trace();
 
-        c = c.xtr_pow2(&cp, &cpm1, &cpm2, &mut a, &mut b);
-
-        return c;
+        c.xtr_pow2(&cp, &cpm1, &cpm2, &a, &b)
     }
 
     /* p=q0^u0.q1^u1.q2^u2.q3^u3 */
@@ -1167,7 +1088,7 @@ impl FP12 {
                 t[j].dec((bt >> 1) as isize);
                 t[j].norm();
                 w[i] += bt * (k as i8);
-                k = 2 * k;
+                k *= 2;
             }
         }
 
@@ -1185,6 +1106,6 @@ impl FP12 {
         r.mul(&p);
         p.cmove(&r, pb);
         p.reduce();
-        return p;
+        p
     }
 }

@@ -18,12 +18,12 @@ os.system('git submodule foreach git pull')
 rust_path = os.path.join('miracl_core', 'rust')
 os.chdir(rust_path)
 
-# The curve no's to use
-#curve_file_path = os.path.join('..', '..', 'curve_nos.txt')
+# The curve no's to use. The file is expected to contain one number per line with the last line containing 0 which indicates termination. 
+# Without 0 in the last line, command won't exit
 os.system('python config64.py < ../../curve_nos.txt')
 
 # path of the src directory of the rust code
-src_path = os.path.join('core', 'src');
+src_path = os.path.join('mcore', 'src');
 
 # path where the src directory needs to be moved
 dest_path = os.path.join('..', '..', 'rust_64', 'src')
@@ -40,4 +40,5 @@ shutil.move(os.path.join(backup_path, 'lib_backup.rs'), os.path.join(dest_path, 
 
 # Reset the changes done to submodule
 os.system('git reset --hard')
-shutil.rmtree('core', ignore_errors = True)
+shutil.rmtree('mcore', ignore_errors = True)
+print('Finished...')

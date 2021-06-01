@@ -17,18 +17,33 @@
  * limitations under the License.
  */
 
+use crate::bls12381::big;
 use crate::bls12381::big::BIG;
 use crate::bls12381::fp;
 use crate::bls12381::fp::FP;
 use crate::bls12381::fp2::FP2;
-use crate::rand::RAND;
 #[allow(unused_imports)]
 use crate::bls12381::rom;
+use crate::rand::RAND;
 
 #[derive(Copy, Clone)]
 pub struct FP4 {
     a: FP2,
     b: FP2,
+}
+
+#[cfg(feature = "std")]
+impl std::fmt::Debug for FP4 {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "{}", self.tostring())
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::fmt::Display for FP4 {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "{}", self.tostring())
+    }
 }
 
 impl FP4 {
@@ -43,46 +58,46 @@ impl FP4 {
         let mut f = FP4::new();
         f.a.copy(&FP2::new_int(a));
         f.b.zero();
-        return f;
+        f
     }
 
-    pub fn new_ints(a: isize,b: isize) -> FP4 {
+    pub fn new_ints(a: isize, b: isize) -> FP4 {
         let mut f = FP4::new();
         f.a.copy(&FP2::new_int(a));
         f.b.copy(&FP2::new_int(b));
-        return f;
+        f
     }
 
     pub fn new_copy(x: &FP4) -> FP4 {
         let mut f = FP4::new();
         f.a.copy(&x.a);
         f.b.copy(&x.b);
-        return f;
+        f
     }
 
     pub fn new_fp2s(c: &FP2, d: &FP2) -> FP4 {
         let mut f = FP4::new();
         f.a.copy(c);
         f.b.copy(d);
-        return f;
+        f
     }
 
     pub fn new_fp2(c: &FP2) -> FP4 {
         let mut f = FP4::new();
         f.a.copy(c);
         f.b.zero();
-        return f;
+        f
     }
 
     pub fn new_fp(c: &FP) -> FP4 {
         let mut f = FP4::new();
         f.a.set_fp(c);
         f.b.zero();
-        return f;
+        f
     }
 
-    pub fn new_rand(rng: &mut RAND) -> FP4 {
-        return FP4::new_fp2s(&FP2::new_rand(rng),&FP2::new_rand(rng));
+    pub fn new_rand(rng: &mut impl RAND) -> FP4 {
+        FP4::new_fp2s(&FP2::new_rand(rng), &FP2::new_rand(rng))
     }
 
     pub fn set_fp2s(&mut self, c: &FP2, d: &FP2) {
@@ -124,38 +139,75 @@ impl FP4 {
 
     /* test self=0 ? */
     pub fn iszilch(&self) -> bool {
-        return self.a.iszilch() && self.b.iszilch();
+        self.a.iszilch() && self.b.iszilch()
+    }
+
+    pub fn islarger(&self) -> isize {
+        if self.iszilch() {
+            0
+        } else {
+            let cmp = self.b.islarger();
+            if cmp != 0 {
+                cmp
+            } else {
+                self.a.islarger()
+            }
+        }
+    }
+
+    pub fn tobytes(&self, bf: &mut [u8]) {
+        const MB: usize = 2 * (big::MODBYTES as usize);
+        let mut t: [u8; MB] = [0; MB];
+        self.b.tobytes(&mut t);
+        for i in 0..MB {
+            bf[i] = t[i];
+        }
+        self.a.tobytes(&mut t);
+        for i in 0..MB {
+            bf[i + MB] = t[i];
+        }
+    }
+
+    pub fn frombytes(bf: &[u8]) -> FP4 {
+        const MB: usize = 2 * (big::MODBYTES as usize);
+        let mut t: [u8; MB] = [0; MB];
+        for i in 0..MB {
+            t[i] = bf[i];
+        }
+        let tb = FP2::frombytes(&t);
+        for i in 0..MB {
+            t[i] = bf[i + MB];
+        }
+        let ta = FP2::frombytes(&t);
+        FP4::new_fp2s(&ta, &tb)
     }
 
     /* test self=1 ? */
     pub fn isunity(&self) -> bool {
         let one = FP2::new_int(1);
-        return self.a.equals(&one) && self.b.iszilch();
+        self.a.equals(&one) && self.b.iszilch()
     }
 
     /* test is w real? That is in a+ib test b is zero */
     pub fn isreal(&mut self) -> bool {
-        return self.b.iszilch();
+        self.b.iszilch()
     }
     /* extract real part a */
     pub fn real(&self) -> FP2 {
-        let f = FP2::new_copy(&self.a);
-        return f;
+        FP2::new_copy(&self.a)
     }
 
     pub fn geta(&self) -> FP2 {
-        let f = FP2::new_copy(&self.a);
-        return f;
+        FP2::new_copy(&self.a)
     }
     /* extract imaginary part b */
     pub fn getb(&self) -> FP2 {
-        let f = FP2::new_copy(&self.b);
-        return f;
+        FP2::new_copy(&self.b)
     }
 
     /* test self=x */
     pub fn equals(&self, x: &FP4) -> bool {
-        return self.a.equals(&x.a) && self.b.equals(&x.b);
+        self.a.equals(&x.a) && self.b.equals(&x.b)
     }
     /* copy self=x */
     pub fn copy(&mut self, x: &FP4) {
@@ -175,17 +227,17 @@ impl FP4 {
         self.b.zero();
     }
 
-    pub fn sign(&self)  -> isize {
-        let mut p1=self.a.sign();
-        let mut p2=self.b.sign();
+    pub fn sign(&self) -> isize {
+        let mut p1 = self.a.sign();
+        let mut p2 = self.b.sign();
         if fp::BIG_ENDIAN_SIGN {
-            let u=self.b.iszilch() as isize;
-	        p2^=(p1^p2)&u;
-	        return p2;
+            let u = self.b.iszilch() as isize;
+            p2 ^= (p1 ^ p2) & u;
+            p2
         } else {
-            let u=self.a.iszilch() as isize;
-	        p1^=(p1^p2)&u;
-	        return p1;
+            let u = self.a.iszilch() as isize;
+            p1 ^= (p1 ^ p2) & u;
+            p1
         }
     }
 
@@ -334,12 +386,13 @@ impl FP4 {
     }
 
     /* output to hex string */
+    #[cfg(feature = "std")]
     pub fn tostring(&self) -> String {
-        return format!("[{},{}]", self.a.tostring(), self.b.tostring());
+        format!("[{},{}]", self.a.tostring(), self.b.tostring())
     }
 
     /* self=1/self */
-    pub fn inverse(&mut self,h:Option<&FP>) {
+    pub fn inverse(&mut self, h: Option<&FP>) {
         //self.norm();
 
         let mut t1 = FP2::new_copy(&self.a);
@@ -377,29 +430,29 @@ impl FP4 {
         self.b.mul(f);
     }
 
-    /* self=self^e */
-/*
-    pub fn pow(&self, e: &BIG) -> FP4 {
-        let mut w = FP4::new_copy(self);
-        w.norm();
-        let mut z = BIG::new_copy(&e);
-        let mut r = FP4::new_int(1);
-        z.norm();
-        loop {
-            let bt = z.parity();
-            z.fshr(1);
-            if bt == 1 {
-                r.mul(&mut w)
-            };
-            if z.iszilch() {
-                break;
+    /* return this^e */
+    /*
+        pub fn pow(&self, e: &BIG) -> FP4 {
+            let mut w = FP4::new_copy(self);
+            w.norm();
+            let mut z = BIG::new_copy(&e);
+            let mut r = FP4::new_int(1);
+            z.norm();
+            loop {
+                let bt = z.parity();
+                z.fshr(1);
+                if bt == 1 {
+                    r.mul(&mut w)
+                };
+                if z.iszilch() {
+                    break;
+                }
+                w.sqr();
             }
-            w.sqr();
+            r.reduce();
+            r
         }
-        r.reduce();
-        return r;
-    }
-*/
+    */
     /* XTR xtr_a function */
     pub fn xtr_a(&mut self, w: &FP4, y: &FP4, z: &FP4) {
         let mut r = FP4::new_copy(w);
@@ -476,7 +529,7 @@ impl FP4 {
             r.copy(&b)
         }
         r.reduce();
-        return r;
+        r
     }
 
     /* r=ck^a.cl^n using XTR double exponentiation method on traces of FP12s. See Stam thesis. */
@@ -519,46 +572,42 @@ impl FP4 {
                     cumv.copy(&cv);
                     cv.copy(&cu);
                     cu.copy(&t);
+                } else if d.parity() == 0 {
+                    d.fshr(1);
+                    r.copy(&cum2v);
+                    r.conj();
+                    t.copy(&cumv);
+                    t.xtr_a(&cu, &cv, &r);
+                    cum2v.copy(&cumv);
+                    cum2v.xtr_d();
+                    cumv.copy(&t);
+                    cu.xtr_d();
+                } else if e.parity() == 1 {
+                    d.sub(&e);
+                    d.norm();
+                    d.fshr(1);
+                    t.copy(&cv);
+                    t.xtr_a(&cu, &cumv, &cum2v);
+                    cu.xtr_d();
+                    cum2v.copy(&cv);
+                    cum2v.xtr_d();
+                    cum2v.conj();
+                    cv.copy(&t);
                 } else {
-                    if d.parity() == 0 {
-                        d.fshr(1);
-                        r.copy(&cum2v);
-                        r.conj();
-                        t.copy(&cumv);
-                        t.xtr_a(&cu, &cv, &r);
-                        cum2v.copy(&cumv);
-                        cum2v.xtr_d();
-                        cumv.copy(&t);
-                        cu.xtr_d();
-                    } else {
-                        if e.parity() == 1 {
-                            d.sub(&e);
-                            d.norm();
-                            d.fshr(1);
-                            t.copy(&cv);
-                            t.xtr_a(&cu, &cumv, &cum2v);
-                            cu.xtr_d();
-                            cum2v.copy(&cv);
-                            cum2v.xtr_d();
-                            cum2v.conj();
-                            cv.copy(&t);
-                        } else {
-                            w.copy(&d);
-                            d.copy(&e);
-                            d.fshr(1);
-                            e.copy(&w);
-                            t.copy(&cumv);
-                            t.xtr_d();
-                            cumv.copy(&cum2v);
-                            cumv.conj();
-                            cum2v.copy(&t);
-                            cum2v.conj();
-                            t.copy(&cv);
-                            t.xtr_d();
-                            cv.copy(&cu);
-                            cu.copy(&t);
-                        }
-                    }
+                    w.copy(&d);
+                    d.copy(&e);
+                    d.fshr(1);
+                    e.copy(&w);
+                    t.copy(&cumv);
+                    t.xtr_d();
+                    cumv.copy(&cum2v);
+                    cumv.conj();
+                    cum2v.copy(&t);
+                    cum2v.conj();
+                    t.copy(&cv);
+                    t.xtr_d();
+                    cv.copy(&cu);
+                    cu.copy(&t);
                 }
             }
             if BIG::comp(&d, &e) < 0 {
@@ -573,51 +622,47 @@ impl FP4 {
                     cum2v.copy(&cumv);
                     cumv.copy(&cu);
                     cu.copy(&t);
+                } else if e.parity() == 0 {
+                    w.copy(&d);
+                    d.copy(&e);
+                    d.fshr(1);
+                    e.copy(&w);
+                    t.copy(&cumv);
+                    t.xtr_d();
+                    cumv.copy(&cum2v);
+                    cumv.conj();
+                    cum2v.copy(&t);
+                    cum2v.conj();
+                    t.copy(&cv);
+                    t.xtr_d();
+                    cv.copy(&cu);
+                    cu.copy(&t);
+                } else if d.parity() == 1 {
+                    w.copy(&e);
+                    e.copy(&d);
+                    w.sub(&d);
+                    w.norm();
+                    d.copy(&w);
+                    d.fshr(1);
+                    t.copy(&cv);
+                    t.xtr_a(&cu, &cumv, &cum2v);
+                    cumv.conj();
+                    cum2v.copy(&cu);
+                    cum2v.xtr_d();
+                    cum2v.conj();
+                    cu.copy(&cv);
+                    cu.xtr_d();
+                    cv.copy(&t);
                 } else {
-                    if e.parity() == 0 {
-                        w.copy(&d);
-                        d.copy(&e);
-                        d.fshr(1);
-                        e.copy(&w);
-                        t.copy(&cumv);
-                        t.xtr_d();
-                        cumv.copy(&cum2v);
-                        cumv.conj();
-                        cum2v.copy(&t);
-                        cum2v.conj();
-                        t.copy(&cv);
-                        t.xtr_d();
-                        cv.copy(&cu);
-                        cu.copy(&t);
-                    } else {
-                        if d.parity() == 1 {
-                            w.copy(&e);
-                            e.copy(&d);
-                            w.sub(&d);
-                            w.norm();
-                            d.copy(&w);
-                            d.fshr(1);
-                            t.copy(&cv);
-                            t.xtr_a(&cu, &cumv, &cum2v);
-                            cumv.conj();
-                            cum2v.copy(&cu);
-                            cum2v.xtr_d();
-                            cum2v.conj();
-                            cu.copy(&cv);
-                            cu.xtr_d();
-                            cv.copy(&t);
-                        } else {
-                            d.fshr(1);
-                            r.copy(&cum2v);
-                            r.conj();
-                            t.copy(&cumv);
-                            t.xtr_a(&cu, &cv, &r);
-                            cum2v.copy(&cumv);
-                            cum2v.xtr_d();
-                            cumv.copy(&t);
-                            cu.xtr_d();
-                        }
-                    }
+                    d.fshr(1);
+                    r.copy(&cum2v);
+                    r.conj();
+                    t.copy(&cumv);
+                    t.xtr_a(&cu, &cv, &r);
+                    cum2v.copy(&cumv);
+                    cum2v.xtr_d();
+                    cumv.copy(&t);
+                    cu.xtr_d();
                 }
             }
         }
@@ -626,8 +671,8 @@ impl FP4 {
         for _ in 0..f2 {
             r.xtr_d()
         }
-        r = r.xtr_pow(&mut d);
-        return r;
+        r = r.xtr_pow(&d);
+        r
     }
 
     /* this/=2 */
@@ -647,91 +692,91 @@ impl FP4 {
             self.norm();
         }
     }
-/*
-    pub fn pow(&mut self, e: &BIG) {
-        let mut w = FP4::new_copy(self);
-        let mut z = BIG::new_copy(&e);
-        let mut r = FP4::new_int(1);
-        loop {
-            let bt = z.parity();
-            z.fshr(1);
-            if bt == 1 {
-                r.mul(&mut w)
-            };
-            if z.iszilch() {
-                break;
+    /*
+        pub fn pow(&mut self, e: &BIG) {
+            let mut w = FP4::new_copy(self);
+            let mut z = BIG::new_copy(&e);
+            let mut r = FP4::new_int(1);
+            loop {
+                let bt = z.parity();
+                z.fshr(1);
+                if bt == 1 {
+                    r.mul(&mut w)
+                };
+                if z.iszilch() {
+                    break;
+                }
+                w.sqr();
             }
-            w.sqr();
+            r.reduce();
+            self.copy(&r);
         }
-        r.reduce();
-        self.copy(&r);
-    }
-*/
+    */
 
-/* PFGE24S
+    /* PFGE24S
 
-    pub fn qr(&mut self,h:Option<&mut FP>) -> isize {
-        let mut c=FP4::new_copy(self);
-        c.conj();
-        c.mul(self);
-        return c.geta().qr(h);
-    }
-
-    // sqrt(a+ib) = sqrt(a+sqrt(a*a-n*b*b)/2)+ib/(2*sqrt(a+sqrt(a*a-n*b*b)/2)) 
-    // returns true if this is QR 
-    pub fn sqrt(&mut self,h:Option<&FP>)  {
-        if self.iszilch() {
-            return;
+        pub fn qr(&mut self,h:Option<&mut FP>) -> isize {
+            let mut c=FP4::new_copy(self);
+            c.conj();
+            c.mul(self);
+            c.geta().qr(h)
         }
 
-        let mut a = FP2::new_copy(&self.a);
-        let mut b = FP2::new_copy(&self.a);
-        let mut s = FP2::new_copy(&self.b);
-        let mut t = FP2::new_copy(&self.a);
-        let mut hint = FP::new();
+        // sqrt(a+ib) = sqrt(a+sqrt(a*a-n*b*b)/2)+ib/(2*sqrt(a+sqrt(a*a-n*b*b)/2))
+        // returns true if this is QR
+        pub fn sqrt(&mut self,h:Option<&FP>)  {
+            if self.iszilch() {
+                return;
+            }
 
-        s.sqr();
-        a.sqr();
-        s.mul_ip();
-        s.norm();
-        a.sub(&s);
+            let mut a = FP2::new_copy(&self.a);
+            let mut b = FP2::new_copy(&self.a);
+            let mut s = FP2::new_copy(&self.b);
+            let mut t = FP2::new_copy(&self.a);
+            let mut hint = FP::new();
 
-        s.copy(&a); s.norm();
+            s.sqr();
+            a.sqr();
+            s.mul_ip();
+            s.norm();
+            a.sub(&s);
 
-        s.sqrt(h);
+            s.copy(&a); s.norm();
 
-        a.copy(&t);
-        a.add(&s);
-        a.norm();
-        a.div2();
+            s.sqrt(h);
 
-
-        b.copy(&self.b); b.div2();
-        let qr=a.qr(Some(&mut hint));
+            a.copy(&t);
+            a.add(&s);
+            a.norm();
+            a.div2();
 
 
-// tweak hint - multiply old hint by Norm(1/Beta)^e where Beta is irreducible polynomial
-        s.copy(&a);
-        let mut twk = FP::new_big(&BIG::new_ints(&rom::TWK));
-        twk.mul(&hint);
-        s.div_ip(); s.norm();
+            b.copy(&self.b); b.div2();
+            let qr=a.qr(Some(&mut hint));
 
-        a.cmove(&s,1-qr);
-        hint.cmove(&twk,1-qr);
 
-        self.a.copy(&a); self.a.sqrt(Some(&hint));
-        s.copy(&a); s.inverse(Some(&hint));
-        s.mul(&self.a);
-        self.b.copy(&s); self.b.mul(&b);
-        t.copy(&self.a);
+    // tweak hint - multiply old hint by Norm(1/Beta)^e where Beta is irreducible polynomial
+            s.copy(&a);
+            let mut twk = FP::new_big(&BIG::new_ints(&rom::TWK));
+            twk.mul(&hint);
+            s.div_ip(); s.norm();
 
-        self.a.cmove(&self.b,1-qr);
-        self.b.cmove(&t,1-qr);
+            a.cmove(&s,1-qr);
+            hint.cmove(&twk,1-qr);
 
-        let sgn=self.sign();
-        let mut nr=FP4::new_copy(&self);
-        nr.neg(); nr.norm();
-        self.cmove(&nr,sgn); 
-    }
-PFGE24F */
+            self.a.copy(&a); self.a.sqrt(Some(&hint));
+            s.copy(&a); s.inverse(Some(&hint));
+            s.mul(&self.a);
+            self.b.copy(&s); self.b.mul(&b);
+            t.copy(&self.a);
+
+            self.a.cmove(&self.b,1-qr);
+            self.b.cmove(&t,1-qr);
+
+            let sgn=self.sign();
+            let mut nr=FP4::new_copy(&self);
+            nr.neg(); nr.norm();
+            self.cmove(&nr,sgn);
+        }
+    PFGE24F */
 }

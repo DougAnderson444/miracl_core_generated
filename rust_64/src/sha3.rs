@@ -62,7 +62,7 @@ pub struct SHA3 {
 
 impl SHA3 {
     fn rotl(x: u64, n: u64) -> u64 {
-        return ((x) << n) | ((x) >> (64 - n));
+        ((x) << n) | ((x) >> (64 - n))
     }
 
     fn transform(&mut self) {
@@ -151,7 +151,25 @@ impl SHA3 {
             s: [[0; 5]; 5],
         };
         nh.init(olen);
-        return nh;
+        nh
+    }
+
+    pub fn new_copy(hh: &SHA3) -> SHA3 {
+        let mut nh = SHA3 {
+            length: 0,
+            rate: 0,
+            len: 0,
+            s: [[0; 5]; 5],
+        };
+        nh.length = hh.length;
+        nh.len = hh.len;
+        nh.rate = hh.rate;
+        for i in 0..5 {
+            for j in 0..5 {
+                nh.s[i][j] = hh.s[i][j];
+            }
+        }
+        nh
     }
 
     /* process a single byte */
@@ -162,7 +180,7 @@ impl SHA3 {
         let ind = cnt / 8;
         let i = ind % 5;
         let j = ind / 5;
-        self.s[i][j] ^= ((byt & 0xff) as u64) << (8 * b);
+        self.s[i][j] ^= (byt as u64) << (8 * b);
         self.length += 1;
         if cnt + 1 == self.rate {
             self.transform();
@@ -235,6 +253,11 @@ impl SHA3 {
         self.squeeze(digest, hlen);
     }
 
+    pub fn continuing_hash(&mut self, digest: &mut [u8]) {
+        let mut sh = SHA3::new_copy(self);
+        sh.hash(digest)
+    }
+
     pub fn shake(&mut self, digest: &mut [u8], olen: usize) {
         let q = self.rate - (self.length % (self.rate as u64)) as usize;
         if q == 1 {
@@ -247,6 +270,11 @@ impl SHA3 {
             self.process(0x80);
         }
         self.squeeze(digest, olen);
+    }
+
+    pub fn continuing_shake(&mut self, digest: &mut [u8], olen: usize) {
+        let mut sh = SHA3::new_copy(self);
+        sh.shake(digest, olen);
     }
 }
 
