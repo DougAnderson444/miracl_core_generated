@@ -224,15 +224,15 @@ impl HASH512 {
             h: [0; 8],
             w: [0; 80],
         };
-        nh.length[0] = hh.length[0];
-        nh.length[1] = hh.length[1];
+        nh.length[0]=hh.length[0];
+        nh.length[1]=hh.length[1];
         for i in 0..80 {
             nh.w[i] = hh.w[i];
         }
         for i in 0..8 {
             nh.h[i] = hh.h[i];
         }
-        nh
+        nh        
     }
 
     /* process a single byte */
@@ -288,7 +288,7 @@ impl HASH512 {
         digest
     }
     pub fn continuing_hash(&self) -> [u8; 64] {
-        let mut sh = HASH512::new_copy(self);
+        let mut sh=HASH512::new_copy(self);
         sh.hash()
     }
 }

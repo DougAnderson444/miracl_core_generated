@@ -47,8 +47,8 @@ pub mod bls48556;
 pub mod bls48581;
 #[cfg(feature = "bn254")]
 pub mod bn254;
-#[cfg(feature = "bn254CX")]
-pub mod bn254CX;
+#[cfg(feature = "bn254cx")]
+pub mod bn254cx;
 #[cfg(feature = "bn462")]
 pub mod bn462;
 #[cfg(feature = "brainpool")]

@@ -125,18 +125,21 @@ pub fn ecpsvdp_dh(s: &[u8], wd: &[u8], z: &mut [u8], typ: isize) -> isize {
     }
 
     if res == 0 {
-        let r = BIG::new_ints(&rom::CURVE_ORDER);
-        sc.rmod(&r);
+        if ecp::CURVETYPE == ecp::WEIERSTRASS { 
+        // if edwards or montgomery, RFC7748 multiplier should not be disturbed
+            let r = BIG::new_ints(&rom::CURVE_ORDER);
+            sc.rmod(&r);
+        }
         W = W.mul(&mut sc);
         if W.is_infinity() {
             res = ERROR;
         } else {
             if ecp::CURVETYPE != ecp::MONTGOMERY {
-                if typ > 0 {
-                    if typ == 1 {
-                        W.tobytes(z, true);
+                if typ>0 {
+                    if typ==1 {
+                        W.tobytes(z,true);
                     } else {
-                        W.tobytes(z, false);
+                        W.tobytes(z,false);
                     }
                 } else {
                     W.getx().tobytes(z);
@@ -163,16 +166,7 @@ pub fn ecpsp_dsa(
     let mut t: [u8; EFS] = [0; EFS];
     let mut b: [u8; big::MODBYTES as usize] = [0; big::MODBYTES as usize];
 
-    hmac::GPhashit(
-        hmac::MC_SHA2,
-        sha,
-        &mut b,
-        big::MODBYTES as usize,
-        0,
-        Some(f),
-        -1,
-        None,
-    );
+    hmac::GPhashit(hmac::MC_SHA2, sha, &mut b, big::MODBYTES as usize,0,Some(f), -1, None);
 
     let G = ECP::generator();
 
@@ -231,16 +225,7 @@ pub fn ecpvp_dsa(sha: usize, w: &[u8], f: &[u8], c: &[u8], d: &[u8]) -> isize {
 
     let mut b: [u8; big::MODBYTES as usize] = [0; big::MODBYTES as usize];
 
-    hmac::GPhashit(
-        hmac::MC_SHA2,
-        sha,
-        &mut b,
-        big::MODBYTES as usize,
-        0,
-        Some(f),
-        -1,
-        None,
-    );
+    hmac::GPhashit(hmac::MC_SHA2, sha, &mut b, big::MODBYTES as usize, 0,Some(f), -1, None);
 
     let mut G = ECP::generator();
 
@@ -335,14 +320,12 @@ pub fn ecies_encrypt(
 
     hmac::inttobytes(p2l, &mut l2);
 
-    let mut opt = clen;
+    let mut opt=clen;
     for i in 0..p2l {
-        c[opt] = p2[i];
-        opt += 1;
+        c[opt]=p2[i]; opt+=1;
     }
     for i in 0..8 {
-        c[opt] = l2[i];
-        opt += 1;
+        c[opt]=l2[i]; opt+=1;
     }
 
     hmac::hmac1(hmac::MC_SHA2, sha, t, t.len(), &k2, &c[0..opt]);
@@ -415,18 +398,16 @@ pub fn ecies_decrypt(
     let p2l = p2.len();
 
     hmac::inttobytes(p2l, &mut l2);
-    let mut opt = clen;
+    let mut opt=clen;
 
     for i in 0..p2l {
-        c[opt] = p2[i];
-        opt += 1;
+        c[opt]=p2[i]; opt+=1;
     }
     for i in 0..8 {
-        c[opt] = l2[i];
-        opt += 1;
+        c[opt]=l2[i]; opt+=1;
     }
 
-    let tl = tag.len();
+    let tl=tag.len();
     hmac::hmac1(hmac::MC_SHA2, sha, &mut tag, tl, &k2, &c[0..opt]);
 
     if !ncomp(&t, &tag, t.len()) {

@@ -19,8 +19,8 @@
 
 use crate::rsa4096::big;
 use crate::rsa4096::ff;
-use crate::rsa4096::ff::DF;
 use crate::rsa4096::ff::SF;
+use crate::rsa4096::ff::DF;
 
 use crate::rand::RAND;
 
@@ -58,11 +58,14 @@ pub fn new_private_key() -> RsaPrivateKey {
 }
 
 pub fn new_public_key() -> RsaPublicKey {
-    RsaPublicKey { e: 0, n: DF::new() }
+    RsaPublicKey {
+        e: 0,
+        n: DF::new(),
+    }
 }
 
-pub fn set_public_key(pk: &mut RsaPublicKey, e: isize, f: &[u8]) {
-    pk.e = e;
+pub fn set_public_key(pk: &mut RsaPublicKey,e: isize, f: &[u8]) {
+    pk.e=e;
     let mut r = DF::new();
     r.frombytes(f);
     pk.n.copy(&r);
@@ -71,32 +74,16 @@ pub fn set_public_key(pk: &mut RsaPublicKey, e: isize, f: &[u8]) {
 // Input private key from OpenSSL format
 // e.g as in openssl rsa -in privkey.pem -noout -text
 // Note order swap - For MIRACL c=1/p mod q, for OpenSSL c=1/q mod p
-pub fn rsa_private_key_from_openssl(
-    p: &[u8],
-    q: &[u8],
-    dp: &[u8],
-    dq: &[u8],
-    c: &[u8],
-    prv: &mut RsaPrivateKey,
-) {
+pub fn rsa_private_key_from_openssl(p: &[u8],q: &[u8],dp: &[u8],dq: &[u8],c: &[u8], prv: &mut RsaPrivateKey) {
     prv.p.frombytes(q);
     prv.q.frombytes(p);
     prv.dp.frombytes(dq);
     prv.dq.frombytes(dp);
-    prv.c.frombytes(c);
+    prv.c.frombytes(c);    
 }
 
-pub fn key_pair_from_openssl(
-    e: isize,
-    p: &[u8],
-    q: &[u8],
-    dp: &[u8],
-    dq: &[u8],
-    c: &[u8],
-    prv: &mut RsaPrivateKey,
-    pbc: &mut RsaPublicKey,
-) {
-    rsa_private_key_from_openssl(p, q, dp, dq, c, prv);
+pub fn key_pair_from_openssl(e: isize, p: &[u8],q: &[u8],dp: &[u8],dq: &[u8],c: &[u8], prv: &mut RsaPrivateKey, pbc: &mut RsaPublicKey) {
+    rsa_private_key_from_openssl(p,q,dp,dq,c,prv);
     pbc.n = prv.p.mul(&prv.q);
     pbc.e = e;
 }
@@ -147,7 +134,7 @@ pub fn key_pair(rng: &mut impl RAND, e: isize, prv: &mut RsaPrivateKey, pbc: &mu
     pbc.n = prv.p.mul(&prv.q);
     pbc.e = e;
 
-    // Note this only works for the 3 mod 4 primes generated as above.
+// Note this only works for the 3 mod 4 primes generated as above.
 
     t.copy(&p1);
     t.shr();
@@ -170,6 +157,7 @@ pub fn key_pair(rng: &mut impl RAND, e: isize, prv: &mut RsaPrivateKey, pbc: &mu
     prv.c.copy(&prv.p);
     prv.c.invmodp(&prv.q);
 }
+
 
 /* destroy the Private Key structure */
 pub fn private_key_kill(prv: &mut RsaPrivateKey) {

@@ -1,6 +1,6 @@
 [package]
 name = "miracl_core"
-version = "2.4.0"
+version = "2.5.0"
 authors = ["lovesh <lovesh.bond@gmail.com>"]
 edition = "2018"
 description = "Rust code for 64 bit generated from https://github.com/miracl/core"
@@ -38,7 +38,7 @@ c1665 = []
 mdc = []
 tweedledee = []
 tweedledum = []
-bn254x = []
+bn254cx = []
 bls12383 = []
 fp256bn = []
 fp512bn = []

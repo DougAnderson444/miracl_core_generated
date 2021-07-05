@@ -151,15 +151,15 @@ impl HASH256 {
             h: [0; 8],
             w: [0; 64],
         };
-        nh.length[0] = hh.length[0];
-        nh.length[1] = hh.length[1];
+        nh.length[0]=hh.length[0];
+        nh.length[1]=hh.length[1];
         for i in 0..64 {
             nh.w[i] = hh.w[i];
         }
         for i in 0..8 {
             nh.h[i] = hh.h[i];
         }
-        nh
+        nh        
     }
 
     /* process a single byte */
@@ -216,7 +216,7 @@ impl HASH256 {
     }
 
     pub fn continuing_hash(&self) -> [u8; 32] {
-        let mut sh = HASH256::new_copy(self);
+        let mut sh=HASH256::new_copy(self);
         sh.hash()
     }
 }

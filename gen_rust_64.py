@@ -20,7 +20,7 @@ os.chdir(rust_path)
 
 # The curve no's to use. The file is expected to contain one number per line with the last line containing 0 which indicates termination. 
 # Without 0 in the last line, command won't exit
-os.system('python config64.py < ../../curve_nos.txt')
+os.system('python3 config64.py < ../../curve_nos.txt')
 
 # path of the src directory of the rust code
 src_path = os.path.join('mcore', 'src');

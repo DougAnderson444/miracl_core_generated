@@ -19,8 +19,8 @@
 
 use crate::arch;
 use crate::arch::Chunk;
-use crate::bn254CX::big;
-use crate::bn254CX::big::BIG;
+use crate::bn254cx::big;
+use crate::bn254cx::big::BIG;
 
 pub struct DBIG {
     pub w: [Chunk; big::DNLEN],
@@ -31,7 +31,7 @@ impl std::fmt::Debug for DBIG {
     fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(formatter, "{}", self.tostring())
     }
-}
+}    
 
 #[cfg(feature = "std")]
 impl std::fmt::Display for DBIG {
@@ -164,10 +164,10 @@ impl DBIG {
         let mut gt = 0 as Chunk;
         let mut eq = 1 as Chunk;
         for i in (0..big::DNLEN).rev() {
-            gt |= ((b.w[i] - a.w[i]) >> big::BASEBITS) & eq;
-            eq &= ((b.w[i] ^ a.w[i]) - 1) >> big::BASEBITS;
+  		    gt |= ((b.w[i]-a.w[i]) >> big::BASEBITS) & eq;
+		    eq &= ((b.w[i]^a.w[i])-1) >> big::BASEBITS;
         }
-        (gt + gt + eq - 1) as isize
+        (gt+gt+eq-1) as isize
     }
 
     /* convert from byte array to BIG */
@@ -182,7 +182,7 @@ impl DBIG {
 
     /* normalise BIG - force all digits < 2^big::BASEBITS */
     pub fn norm(&mut self) {
-        let mut carry = self.w[0] >> big::BASEBITS;
+        let mut carry  = self.w[0]>>big::BASEBITS;
         self.w[0] &= big::BMASK;
         for i in 1..big::DNLEN - 1 {
             let d = self.w[i] + carry;
@@ -280,11 +280,11 @@ impl DBIG {
             c /= 2;
             bts += 1;
         }
-        bts
+       bts
     }
 
     /* Convert to Hex String */
-    #[cfg(feature = "std")]
+#[cfg(feature = "std")]
     pub fn tostring(&self) -> String {
         let mut s = String::new();
         let mut len = self.nbits();

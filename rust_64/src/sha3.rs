@@ -161,9 +161,9 @@ impl SHA3 {
             len: 0,
             s: [[0; 5]; 5],
         };
-        nh.length = hh.length;
-        nh.len = hh.len;
-        nh.rate = hh.rate;
+        nh.length=hh.length;
+        nh.len=hh.len;
+        nh.rate=hh.rate;
         for i in 0..5 {
             for j in 0..5 {
                 nh.s[i][j] = hh.s[i][j];
@@ -254,7 +254,7 @@ impl SHA3 {
     }
 
     pub fn continuing_hash(&mut self, digest: &mut [u8]) {
-        let mut sh = SHA3::new_copy(self);
+        let mut sh=SHA3::new_copy(self);    
         sh.hash(digest)
     }
 
@@ -273,8 +273,8 @@ impl SHA3 {
     }
 
     pub fn continuing_shake(&mut self, digest: &mut [u8], olen: usize) {
-        let mut sh = SHA3::new_copy(self);
-        sh.shake(digest, olen);
+        let mut sh=SHA3::new_copy(self); 
+        sh.shake(digest,olen);
     }
 }
 

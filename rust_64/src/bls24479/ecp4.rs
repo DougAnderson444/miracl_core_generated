@@ -19,13 +19,13 @@
 
 use crate::bls24479::big;
 use crate::bls24479::big::BIG;
-use crate::bls24479::dbig::DBIG;
 use crate::bls24479::ecp;
-use crate::bls24479::fp;
-use crate::bls24479::fp::FP;
 use crate::bls24479::fp2::FP2;
 use crate::bls24479::fp4::FP4;
 use crate::bls24479::rom;
+use crate::bls24479::fp;
+use crate::bls24479::fp::FP;
+use crate::bls24479::dbig::DBIG;
 
 pub struct ECP4 {
     x: FP4,
@@ -38,7 +38,7 @@ impl std::fmt::Debug for ECP4 {
     fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(formatter, "{}", self.tostring())
     }
-}
+}    
 
 #[cfg(feature = "std")]
 impl std::fmt::Display for ECP4 {
@@ -75,7 +75,7 @@ impl ECP4 {
     }
 
     /* construct this from x - but set to O if not on curve */
-    pub fn new_fp4(ix: &FP4, s: isize) -> ECP4 {
+    pub fn new_fp4(ix: &FP4, s:isize) -> ECP4 {
         let mut E = ECP4::new();
         let mut h = FP::new();
         E.x.copy(&ix);
@@ -84,13 +84,13 @@ impl ECP4 {
         E.x.norm();
 
         let mut rhs = ECP4::rhs(&E.x);
-        if rhs.qr(Some(&mut h)) == 1 {
-            rhs.sqrt(Some(&h));
-            if rhs.sign() != s {
-                rhs.neg();
-            }
-            rhs.reduce();
-            E.y.copy(&rhs);
+ 	    if rhs.qr(Some(&mut h)) == 1 {
+		    rhs.sqrt(Some(&h));
+		    if rhs.sign() != s {
+			    rhs.neg();
+		    }
+		    rhs.reduce();
+		    E.y.copy(&rhs);
         } else {
             E.inf();
         }
@@ -229,102 +229,103 @@ impl ECP4 {
 
     /* convert to byte array */
     pub fn tobytes(&self, b: &mut [u8], compress: bool) {
-        const MB: usize = 4 * (big::MODBYTES as usize);
+        const MB:usize = 4*(big::MODBYTES as usize);
         let mut t: [u8; MB] = [0; MB];
-        let mut alt = false;
+        let mut alt=false;
         let mut W = ECP4::new();
         W.copy(self);
         W.affine();
         W.x.tobytes(&mut t);
 
-        if (fp::MODBITS - 1) % 8 <= 4 && ecp::ALLOW_ALT_COMPRESS {
-            alt = true;
+        if (fp::MODBITS-1)%8 <= 4 && ecp::ALLOW_ALT_COMPRESS {
+            alt=true;
         }
         if alt {
-            for i in 0..MB {
-                b[i] = t[i]
-            }
+		    for i in 0..MB {
+			    b[i]=t[i]
+		    }
             if !compress {
                 W.y.tobytes(&mut t);
                 for i in 0..MB {
-                    b[i + MB] = t[i];
-                }
+				    b[i+MB]=t[i];
+			    }
             } else {
-                b[0] |= 0x80;
-                if W.y.islarger() == 1 {
-                    b[0] |= 0x20;
-                }
+                b[0]|=0x80;
+                if W.y.islarger()==1 {
+				    b[0]|=0x20;
+			    }
             }
-        } else {
-            for i in 0..MB {
-                b[i + 1] = t[i];
-            }
+
+	    } else {
+		    for i in 0..MB {
+			    b[i+1]=t[i];
+		    }
             if !compress {
-                b[0] = 0x04;
+                b[0]=0x04;
                 W.y.tobytes(&mut t);
-                for i in 0..MB {
-                    b[i + MB + 1] = t[i];
-                }
+	            for i in 0..MB {
+			        b[i+MB+1]=t[i];
+			    }
             } else {
-                b[0] = 0x02;
+                b[0]=0x02;
                 if W.y.sign() == 1 {
-                    b[0] = 0x03;
-                }
+                    b[0]=0x03;
+			    }
             }
-        }
+	    }
     }
 
     /* convert from byte array to point */
     pub fn frombytes(b: &[u8]) -> ECP4 {
-        const MB: usize = 4 * (big::MODBYTES as usize);
+        const MB:usize = 4*(big::MODBYTES as usize);
         let mut t: [u8; MB] = [0; MB];
-        let typ = b[0] as isize;
-        let mut alt = false;
+        let typ=b[0] as isize;
+        let mut alt=false;
 
-        if (fp::MODBITS - 1) % 8 <= 4 && ecp::ALLOW_ALT_COMPRESS {
-            alt = true;
+        if (fp::MODBITS-1)%8 <= 4 && ecp::ALLOW_ALT_COMPRESS {
+            alt=true;
         }
 
-        if alt {
-            for i in 0..MB {
-                t[i] = b[i];
-            }
-            t[0] &= 0x1f;
-            let rx = FP4::frombytes(&t);
-            if (b[0] & 0x80) == 0 {
+	    if alt {
+            for i in 0..MB  {
+			    t[i]=b[i];
+		    }
+            t[0]&=0x1f;
+            let rx=FP4::frombytes(&t);
+            if (b[0]&0x80)==0 {
                 for i in 0..MB {
-                    t[i] = b[i + MB];
-                }
-                let ry = FP4::frombytes(&t);
-                ECP4::new_fp4s(&rx, &ry)
+				    t[i]=b[i+MB];
+			    }
+                let ry=FP4::frombytes(&t);
+                ECP4::new_fp4s(&rx,&ry)
             } else {
-                let sgn = (b[0] & 0x20) >> 5;
-                let mut P = ECP4::new_fp4(&rx, 0);
-                let cmp = P.y.islarger();
+                let sgn=(b[0]&0x20)>>5;
+                let mut P=ECP4::new_fp4(&rx,0);
+                let cmp=P.y.islarger();
                 if (sgn == 1 && cmp != 1) || (sgn == 0 && cmp == 1) {
-                    P.neg();
-                }
+				    P.neg();
+			    }
                 P
             }
         } else {
-            for i in 0..MB {
-                t[i] = b[i + 1];
-            }
-            let rx = FP4::frombytes(&t);
+		    for i in 0..MB {
+			    t[i]=b[i+1];
+		    }
+            let rx=FP4::frombytes(&t);
             if typ == 0x04 {
-                for i in 0..MB {
-                    t[i] = b[i + MB + 1];
-                }
-                let ry = FP4::frombytes(&t);
-                ECP4::new_fp4s(&rx, &ry)
+		        for i in 0..MB {
+				    t[i]=b[i+MB+1];
+			    }
+		        let ry=FP4::frombytes(&t);
+		        ECP4::new_fp4s(&rx,&ry)
             } else {
-                ECP4::new_fp4(&rx, typ & 1)
+                ECP4::new_fp4(&rx,typ&1)
             }
         }
     }
 
     /* convert this to hex string */
-    #[cfg(feature = "std")]
+#[cfg(feature = "std")]
     pub fn tostring(&self) -> String {
         let mut W = ECP4::new();
         W.copy(self);
@@ -860,15 +861,15 @@ impl ECP4 {
         )
     }
 
-    /* Hunt and Peck a BIG to a curve point */
+/* Hunt and Peck a BIG to a curve point */
     #[allow(non_snake_case)]
     pub fn hap2point(h: &BIG) -> ECP4 {
         let mut Q: ECP4;
         let one = BIG::new_int(1);
-        let mut x = BIG::new_copy(&h);
+        let mut x =BIG::new_copy(&h);
         loop {
             let X = FP4::new_fp2(&FP2::new_bigs(&one, &x));
-            Q = ECP4::new_fp4(&X, 0);
+            Q = ECP4::new_fp4(&X,0);
             if !Q.is_infinity() {
                 break Q;
             }
@@ -877,19 +878,19 @@ impl ECP4 {
         }
     }
 
-    /* Constant time Map to Point */
+/* Constant time Map to Point */
     #[allow(non_snake_case)]
     pub fn map2point(H: &FP4) -> ECP4 {
-        // Shallue and van de Woestijne
-        let mut NY = FP4::new_int(1);
-        let mut T = FP4::new_copy(H);
-        let sgn = T.sign();
+    // Shallue and van de Woestijne
+        let mut NY=FP4::new_int(1);
+        let mut T=FP4::new_copy(H);
+        let sgn=T.sign();
 
-        let mut Z = FP::new_int(fp::RIADZG2A);
-        let mut X1 = FP4::new_fp(&Z);
-        let mut X3 = FP4::new_copy(&X1);
-        let mut A = ECP4::rhs(&X1);
-        let mut W = FP4::new_copy(&A);
+        let mut Z=FP::new_int(fp::RIADZG2A);
+        let mut X1=FP4::new_fp(&Z);
+        let mut X3=FP4::new_copy(&X1);
+        let mut A=ECP4::rhs(&X1);
+        let mut W=FP4::new_copy(&A);
 
         W.sqrt(None);
 
@@ -897,71 +898,55 @@ impl ECP4 {
         Z.mul(&s);
 
         T.sqr();
-        let mut Y = FP4::new_copy(&A);
-        Y.mul(&T);
-        T.copy(&NY);
-        T.add(&Y);
-        T.norm();
-        Y.rsub(&NY);
-        Y.norm();
-        NY.copy(&T);
-        NY.mul(&Y);
-
+        let mut Y=FP4::new_copy(&A); Y.mul(&T);
+        T.copy(&NY); T.add(&Y); T.norm();
+        Y.rsub(&NY); Y.norm();
+        NY.copy(&T); NY.mul(&Y); 
+        
         NY.qmul(&Z);
         NY.inverse(None);
 
         W.qmul(&Z);
-        if W.sign() == 1 {
+        if W.sign()==1 {
             W.neg();
             W.norm();
         }
         W.qmul(&Z);
-        W.mul(&H);
-        W.mul(&Y);
-        W.mul(&NY);
+        W.mul(&H); W.mul(&Y); W.mul(&NY);
 
-        X1.neg();
-        X1.norm();
-        X1.div2();
-        let mut X2 = FP4::new_copy(&X1);
-        X1.sub(&W);
-        X1.norm();
-        X2.add(&W);
-        X2.norm();
-        A.dbl();
-        A.dbl();
-        A.norm();
-        T.sqr();
-        T.mul(&NY);
-        T.sqr();
+        X1.neg(); X1.norm(); X1.div2();
+        let mut X2=FP4::new_copy(&X1);
+        X1.sub(&W); X1.norm();
+        X2.add(&W); X2.norm();
+        A.dbl(); A.dbl(); A.norm();
+        T.sqr(); T.mul(&NY); T.sqr();
         A.mul(&T);
-        X3.add(&A);
-        X3.norm();
+        X3.add(&A); X3.norm();
 
         Y.copy(&ECP4::rhs(&X2));
-        X3.cmove(&X2, Y.qr(None));
+        X3.cmove(&X2,Y.qr(None));
         Y.copy(&ECP4::rhs(&X1));
-        X3.cmove(&X1, Y.qr(None));
+        X3.cmove(&X1,Y.qr(None));
         Y.copy(&ECP4::rhs(&X3));
         Y.sqrt(None);
 
-        let ne = Y.sign() ^ sgn;
-        W.copy(&Y);
-        W.neg();
-        W.norm();
-        Y.cmove(&W, ne);
+        let ne=Y.sign()^sgn;
+        W.copy(&Y); W.neg(); W.norm();
+        Y.cmove(&W,ne);
 
-        ECP4::new_fp4s(&X3, &Y)
+        ECP4::new_fp4s(&X3,&Y)
     }
 
-    /* Map byte string to curve point */
+/* Map byte string to curve point */
     #[allow(non_snake_case)]
     pub fn mapit(h: &[u8]) -> ECP4 {
         let q = BIG::new_ints(&rom::MODULUS);
         let mut dx = DBIG::frombytes(h);
-        let mut x = dx.dmod(&q);
-        let mut P = ECP4::hap2point(&mut x);
+        let mut x=dx.dmod(&q);
+        let mut P=ECP4::hap2point(&mut x);
         P.cfp();
         P
     }
+
+
 }
