@@ -1,6 +1,6 @@
 [package]
 name = "miracl_core"
-version = "2.5.0"
+version = "2.6.0"
 authors = ["lovesh <lovesh.bond@gmail.com>"]
 edition = "2018"
 description = "Rust code for 64 bit generated from https://github.com/miracl/core"
@@ -9,7 +9,10 @@ license = "Apache-2.0"
 
 
 [features]
-default = ["bls12381"]
+# std allows dispalying points
+std = []
+default = ["std", "bls12381"]
+# Curves below
 bn254 = []
 bls12381 = []
 ed25519 = []
