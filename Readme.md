@@ -18,3 +18,12 @@ This will pull upstream changes in `miracl_core` directory and build the crate i
 When new curves are added in upstream, add the number(s) corresponding to the curve (most likely 1 more than the max number) in file `curve_nos.txt` and the corresponding curves should be added as features in `Cargo.toml` and `lib.rs` of crate in `rust_64`. This is tedious but it avoidance needs some refactoring in miracl/core's `rust/config64.py` file.
 
 Increase version before publishing `rust_64` to crates.io.
+
+## Development
+
+If you clone this repo, ensure you run update in order to update the git submodule on your local machine:
+
+```cli
+git submodule init
+git submodule update
+```
