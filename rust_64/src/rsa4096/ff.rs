@@ -165,7 +165,7 @@ impl SF {
     }
 
     /* Convert to Hex String */
-#[cfg(feature = "std")]
+    #[cfg(feature = "std")]
     pub fn tostring(&self) -> String {
         let mut cs:[BIG;SL]=[BIG::new();SL];
         return generic_tostring(&self.v,&mut cs,SL);
@@ -184,7 +184,7 @@ impl SF {
         }
     }
 
-    pub fn random(&mut self, rng: &mut impl RAND) {              // SL only
+    pub fn random(&mut self, rng: &mut RAND) {              // SL only
         for i in 0..SL {
             self.v[i].copy(&BIG::random(rng))
         }
@@ -372,7 +372,7 @@ impl SF {
     }
 
     /* generate random x less than p */
-    pub fn randomnum(&mut self, p: &SF, rng: &mut impl RAND) {    // SL only
+    pub fn randomnum(&mut self, p: &SF, rng: &mut RAND) {    // SL only
         let mut d = DF::new();
         for i in 0..DL {
             d.v[i].copy(&BIG::random(rng));
@@ -496,7 +496,7 @@ impl SF {
 
 
     /* Miller-Rabin test for primality. Slow. */
-    pub fn isprime(&self, rng: &mut impl RAND) -> bool {            // SL only
+    pub fn isprime(&self, rng: &mut RAND) -> bool {            // SL only
         let mut s = 0;
         let mut d = SF::new();
         let mut x = SF::new();
@@ -666,13 +666,13 @@ impl DF {
     }
 
     /* Convert to Hex String */
-#[cfg(feature = "std")]
+    #[cfg(feature = "std")]
     pub fn tostring(&self) -> String {
         let mut cs:[BIG;DL]=[BIG::new();DL];
         return generic_tostring(&self.v,&mut cs,DL);
     }
 
-    /* Convert SFs to/from byte arrays */
+    /* Convert DFs to/from byte arrays */
     pub fn tobytes(&mut self, b: &mut [u8]) {
         for i in 0..DL {
             self.v[i].tobytearray(b, (DL - i - 1) * (big::MODBYTES as usize))

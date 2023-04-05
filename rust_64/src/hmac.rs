@@ -341,6 +341,18 @@ pub fn xof_expand(hlen: usize,okm: &mut [u8],olen: usize,dst: &[u8],msg: &[u8]) 
 }
 
 pub fn xmd_expand(hash: usize,hlen: usize,okm: &mut [u8],olen: usize,dst: &[u8],msg: &[u8]) {
+    let mut w:[u8; 64]=[0;64];
+    if dst.len() >= 256 {
+        GPhashit(hash, hlen, &mut w, 0, 0, Some(b"H2C-OVERSIZE-DST-"), -1, Some(&dst));
+        xmd_expand_short_dst(hash, hlen, okm, olen, &w[0..hlen], msg);
+    } else {
+        xmd_expand_short_dst(hash, hlen, okm, olen, dst, msg);
+    }
+}
+
+// Assumes dst.len() < 256.
+fn xmd_expand_short_dst(hash: usize,hlen: usize,okm: &mut [u8],olen: usize,dst: &[u8],msg: &[u8]) {
+
     let mut tmp: [u8; 260] = [0; 260];
     let mut h0: [u8; 64]=[0;64];
     let mut h1: [u8; 64]=[0;64];
@@ -566,7 +578,7 @@ pub fn pkcs15b(sha: usize, m: &[u8], w: &mut [u8],rfs: usize) -> bool {
     true
 }
 
-pub fn pss_encode(sha: usize, m: &[u8], rng: &mut impl RAND, f: &mut [u8], rfs: usize) -> bool {
+pub fn pss_encode(sha: usize, m: &[u8], rng: &mut RAND, f: &mut [u8], rfs: usize) -> bool {
     let emlen=rfs;
     let embits=8*emlen-1;
     let hlen=sha;
@@ -590,11 +602,7 @@ pub fn pss_encode(sha: usize, m: &[u8], rng: &mut impl RAND, f: &mut [u8], rfs: 
     for i in 0..hlen {
         md[8+hlen+i]=salt[i];
     }
-
-//    print!("MD= 0x"); printbinary(&md[0..8+hlen+hlen]);
-
     SPhashit(MC_SHA2,sha,&mut h,Some(&md[0..8+hlen+hlen]));
-
     for i in 0..emlen-hlen-hlen-2 {
         f[i]=0;
     }
@@ -602,7 +610,6 @@ pub fn pss_encode(sha: usize, m: &[u8], rng: &mut impl RAND, f: &mut [u8], rfs: 
     for i in 0..hlen {
         f[emlen+i-hlen-hlen-1]=salt[i];
     }
-//    print!("f= 0x"); printbinary(&f[0..emlen-hlen-1]);
     mgf1xor(sha,&h[0..hlen],emlen-hlen-1,f);
     f[0]&=mask;
     for i in 0..hlen {
@@ -677,7 +684,7 @@ pub fn pss_verify(sha: usize, m: &[u8],f: &[u8]) -> bool {
 
 
 /* OAEP Message Encoding for Encryption */
-pub fn oaep_encode(sha: usize, m: &[u8], rng: &mut impl RAND, p: Option<&[u8]>, f: &mut [u8], rfs: usize) -> bool {
+pub fn oaep_encode(sha: usize, m: &[u8], rng: &mut RAND, p: Option<&[u8]>, f: &mut [u8], rfs: usize) -> bool {
     let olen = rfs - 1;
     let mlen = m.len();
 
@@ -776,11 +783,9 @@ pub fn oaep_decode(sha: usize, p: Option<&[u8]>, f: &mut [u8],rfs :usize) -> usi
         dbmask[i] ^= f[i]
     }
 
-    let mut comp = true;
+    let mut comp=0;
     for i in 0..hlen {
-        if chash[i] != dbmask[i] {
-            comp = false
-        }
+        comp |= (chash[i]^dbmask[i]) as usize;
     }
 
     for i in 0..olen - seedlen - hlen {
@@ -792,26 +797,25 @@ pub fn oaep_decode(sha: usize, p: Option<&[u8]>, f: &mut [u8],rfs :usize) -> usi
         chash[i] = 0
     }
 
-    let mut k = 0;
-    loop {
-        if k >= olen - seedlen - hlen {
-            return 0;
+// find first non-zero t in array
+    let mut k=0;
+    let mut t=0;
+    let m=olen-seedlen-hlen;
+    for i in 0..m {
+        if t==0 && dbmask[i]!=0 {
+            k=i;
+            t=dbmask[i];
         }
-        if dbmask[k] != 0 {
-            break;
-        }
-        k += 1;
     }
 
-    let t = dbmask[k];
-    if !comp || x != 0 || t != 0x01 {
+    if comp!=0 || x != 0 || t != 0x01 {
         for i in 0..olen - seedlen {
             dbmask[i] = 0
         }
         return 0;
     }
 
-    for i in 0..olen - seedlen - hlen - k - 1 {
+    for i in 0..m - k - 1 {
         f[i] = dbmask[i + k + 1];
     }
 
@@ -819,7 +823,7 @@ pub fn oaep_decode(sha: usize, p: Option<&[u8]>, f: &mut [u8],rfs :usize) -> usi
         dbmask[i] = 0
     }
 
-    olen - seedlen - hlen - k - 1
+    m - k - 1
 }
 
 /*

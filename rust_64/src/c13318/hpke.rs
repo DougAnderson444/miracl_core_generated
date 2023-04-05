@@ -21,7 +21,7 @@ use crate::c13318::ecp;
 use crate::c13318::ecdh;
 
 use crate::hmac;
-use crate::rand::RAND_impl;
+use crate::rand::RAND;
 
 const GROUP: usize = ecdh::EGS;
 const POINT: usize = 2*ecdh::EFS+1;
@@ -147,6 +147,8 @@ pub fn deriveKeyPair(config_id: usize,mut sk: &mut [u8],mut pk: &mut [u8],seed: 
     let mut prk: [u8;ecp::HASH_TYPE]=[0;ecp::HASH_TYPE];
     labeledExtract(&mut prk,None,&suite_id,"dkp_prk",Some(&seed));
 
+    //println!("prk= {:02X?}",prk);
+
 	if kem==32 || kem==33 { // RFC7748
         labeledExpand(&mut sk,&prk,&suite_id,"sk",None,GROUP);
         reverse(&mut sk);
@@ -174,7 +176,12 @@ pub fn deriveKeyPair(config_id: usize,mut sk: &mut [u8],mut pk: &mut [u8],seed: 
             counter += 1;
         }
     }
-    ecdh::key_pair_generate(None::<&mut RAND_impl>, &mut sk, &mut pk);
+    //for i in 0..sk.len() {
+//	print!({}
+//    println!("SK= {:02X?}",sk);
+  //  println!("kem= {}",kem);
+    //println!("counter= {}",counter);
+    ecdh::key_pair_generate(None::<&mut RAND>, &mut sk, &mut pk);
     if kem==32 || kem==33 {
         reverse(&mut pk);
     }

@@ -36,6 +36,7 @@ pub struct FDTYPE {
 pub const ECC:usize = 1;
 pub const RSA:usize = 2;
 pub const ECD:usize = 3;  // for Ed25519
+pub const PQ:usize = 4;
 
 // Supported Hash functions
 
@@ -86,7 +87,7 @@ const RSAPK:[u8;9]=[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01];
 const RSASHA256:[u8;9]=[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0b];
 const RSASHA384:[u8;9]=[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0];
 const RSASHA512:[u8;9]=[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0d];
-
+const DILITHIUM3:[u8;11]=[0x2b, 0x06, 0x01, 0x04, 0x01, 0x02, 0x82, 0x0B, 0x07, 0x06, 0x05];
 // Cert details
 
 pub const CN:[u8;3]=[0x55, 0x04, 0x06]; // countryName
@@ -169,32 +170,29 @@ impl FDTYPE {
 // For RSA octet = p|q|dp|dq|c where pk->len is multiple of 5
 // For ECC octet = k
 pub fn extract_private_key(c: &[u8],pk: &mut [u8]) -> PKTYPE {
-    let mut soid:[u8;9]=[0;9];
+    let mut soid:[u8;12]=[0;12];
     let mut ret=PKTYPE::new();
     let mut j=0 as usize;
+    let pklen=pk.len();
 
     let mut len=getalen(SEQ,c,j);  // Check for expected SEQ clause, and get length
     if len == 0  {                  // if not a SEQ clause, there is a problem, exit
         return ret;
     }
     j+=skip(len);                   // skip over length to clause contents.
-
     if len+j != c.len() {
         return ret;
     }
-
     len=getalen(INT,c,j);
     if len == 0  {                  // if not a SEQ clause, there is a problem, exit
         return ret;
     }
     j+=skip(len)+len;
-
     len=getalen(SEQ,c,j);
     if len == 0  {                  // if not a SEQ clause, there is a problem, exit
         return ret;
     }
     j+=skip(len);
-
 // extract OID
     len=getalen(OID,c,j);
     if len==0 {
@@ -203,6 +201,9 @@ pub fn extract_private_key(c: &[u8],pk: &mut [u8]) -> PKTYPE {
     j+=skip(len);
 
     let mut fin=j+len;
+    if len>soid.len() {
+        return ret;
+    }
     let mut slen=0;
     while j<fin {
         soid[slen]=c[j];
@@ -210,7 +211,6 @@ pub fn extract_private_key(c: &[u8],pk: &mut [u8]) -> PKTYPE {
         j+=1;
     }
     j=fin;
-
     if EDPK == soid[0..slen] {
         len=getalen(OCT,c,j);
         if len==0 {
@@ -223,6 +223,9 @@ pub fn extract_private_key(c: &[u8],pk: &mut [u8]) -> PKTYPE {
         }
         j+=skip(len);
         let rlen=32;
+        if rlen>pklen {
+            return ret;
+        }
         ret.len=rlen;
         for i in 0..rlen-len {
             pk[i]=0;
@@ -235,6 +238,30 @@ pub fn extract_private_key(c: &[u8],pk: &mut [u8]) -> PKTYPE {
         ret.curve = USE_C25519;
     }
 
+    if DILITHIUM3 == soid[0..slen] {
+        len=getalen(OCT,c,j);
+        if len==0 {
+            return ret;
+        }
+        j+=skip(len);
+        len=getalen(OCT,c,j);
+        if len==0 {
+            return ret;
+        }
+        j+=skip(len);
+        let mut tlen=len;
+        if tlen>pk.len() {
+            tlen=pk.len();
+        }
+
+        for i in 0..tlen {
+            pk[i]=c[j];
+            j+=1;
+        }
+        ret.len=tlen;
+        ret.kind=PQ;
+        ret.curve=8*tlen;
+    }    
     if ECPK == soid[0..slen] {
         len=getalen(OID,c,j);
         if len==0 {
@@ -243,6 +270,9 @@ pub fn extract_private_key(c: &[u8],pk: &mut [u8]) -> PKTYPE {
         j+=skip(len);
         
         fin=j+len;
+        if len>soid.len() {
+            return ret;
+        }
         slen=0;
         while j<fin {
             soid[slen]=c[j];
@@ -284,6 +314,11 @@ pub fn extract_private_key(c: &[u8],pk: &mut [u8]) -> PKTYPE {
         if SECP521R1 == soid[0..slen] {
             ret.curve=USE_NIST521;
             rlen=66;
+        }
+        if rlen>pklen {
+            ret.curve=0;
+            ret.len=0;
+            return ret;
         }
         ret.len=rlen;
         for i in 0..rlen-len {
@@ -349,6 +384,10 @@ pub fn extract_private_key(c: &[u8],pk: &mut [u8]) -> PKTYPE {
         }
         let mut rlen=bround(len);
 
+        if 5*rlen>pklen {
+            return ret;
+        }
+
         for i in 0..rlen-len {
             pk[i]=0;
         }
@@ -387,39 +426,34 @@ pub fn extract_private_key(c: &[u8],pk: &mut [u8]) -> PKTYPE {
     return ret;
 }
 
-
 //  Input signed cert as octet, and extract signature
 //  Return 0 for failure, ECC for Elliptic Curve signature, RSA for RSA signature
 //  Note that signature type is not provided here - its the type of the public key that
 //  is used to verify it that matters, and which determines for example the curve to be used!
-
 pub fn extract_cert_sig(sc: &[u8],sig: &mut [u8]) -> PKTYPE {
-    let mut soid:[u8;9]=[0;9];
+    let mut soid:[u8;12]=[0;12];
     let mut ret=PKTYPE::new();
-
     let mut j=0 as usize;
     let mut len=getalen(SEQ,sc,j);  // Check for expected SEQ clause, and get length
+    let siglen=sig.len();
+
     if len == 0  {                  // if not a SEQ clause, there is a problem, exit
         return ret;
     }
     j+=skip(len);                   // skip over length to clause contents. Add len to skip clause
-
     if len+j != sc.len() {
         return ret;
     }
-
     len=getalen(SEQ,sc,j);
     if len==0 {
         return ret;
     }
     j+=skip(len) + len; // jump over cert to signature OID
-
     len=getalen(SEQ,sc,j);
     if len==0 {
         return ret;
     }
     j+=skip(len);
-
     let sj=j+len;      // Needed to jump over signature OID
 
 // dive in to extract OID
@@ -428,8 +462,11 @@ pub fn extract_cert_sig(sc: &[u8],sig: &mut [u8]) -> PKTYPE {
         return ret;
     }
     j+=skip(len);
-
     let mut fin=j+len;
+    if len>soid.len() {
+        return ret;
+    }
+
     let mut slen=0;
     while j<fin {
         soid[slen]=sc[j];
@@ -466,7 +503,10 @@ pub fn extract_cert_sig(sc: &[u8],sig: &mut [u8]) -> PKTYPE {
         ret.kind=RSA;
         ret.hash=H512;
     }
-
+    if DILITHIUM3 == soid[0..slen] {
+        ret.kind=PQ;
+        ret.hash=0; // hash type is implicit
+    }
     if ret.kind==0 { 
         return ret;  // unsupported type
     }
@@ -484,6 +524,10 @@ pub fn extract_cert_sig(sc: &[u8],sig: &mut [u8]) -> PKTYPE {
     if ret.kind==ECD {
         let rlen=bround(len);
         let ex=rlen-len;
+        if rlen>siglen {
+            ret.kind=0;
+            return ret;
+        }
         ret.len=rlen;
         slen=0;
         for _ in 0..ex {
@@ -519,6 +563,11 @@ pub fn extract_cert_sig(sc: &[u8],sig: &mut [u8]) -> PKTYPE {
         }
         let mut rlen=bround(len);
         let mut ex=rlen-len;
+
+        if 2*rlen>siglen {
+            ret.kind=0;
+            return ret;
+        }
         ret.len=2*rlen;
 
         slen=0;
@@ -568,6 +617,11 @@ pub fn extract_cert_sig(sc: &[u8],sig: &mut [u8]) -> PKTYPE {
     if ret.kind==RSA {
         let rlen=bround(len);
         let ex=rlen-len;
+        if rlen>siglen {
+            ret.kind=0;
+            ret.curve=0;
+            return ret;
+        }
         ret.len=rlen;
         slen=0;
         for _ in 0..ex {
@@ -582,11 +636,28 @@ pub fn extract_cert_sig(sc: &[u8],sig: &mut [u8]) -> PKTYPE {
         }
         ret.curve=8*rlen;
     }
+    if ret.kind==PQ {
+        if len>siglen {
+            ret.kind=0;
+            ret.curve=0;
+            return ret;
+        }
+        ret.len=len;
+        slen=0;
+        fin=j+len;
+        while j<fin {
+            sig[slen]=sc[j];
+            j+=1;
+            slen+=1;
+        }
+        ret.curve=8*len;
+    }
     return ret;
 }
 
-// Extract certificate from signed cert
-pub fn extract_cert(sc: &[u8],cert: &mut [u8]) -> usize {
+// Extract pointer to cert inside signed cert, and return its length;
+// let cert=&sc[ptr..ptr+len]
+pub fn find_cert(sc: &[u8],ptr: &mut usize) -> usize {
     let mut j:usize=0;
 
     let mut len=getalen(SEQ,sc,j);
@@ -601,33 +672,43 @@ pub fn extract_cert(sc: &[u8],cert: &mut [u8]) -> usize {
         return 0;
     }
     j+=skip(len);
-
     let fin=j+len;
-    for i in k..fin {
-        cert[i-k]=sc[i];
-    }
+    *ptr=k;
     return fin-k;
 }
 
-// Extract Public Key from inside Certificate
-pub fn extract_public_key(c: &[u8],key: &mut [u8]) -> PKTYPE {
-    let mut koid:[u8;12]=[0;12];
-    let mut ret=PKTYPE::new();
+// Extract certificate from signed cert
+pub fn extract_cert(sc: &[u8],cert: &mut [u8]) -> usize {
+    let mut ptr=0;
+    let n=find_cert(sc,&mut ptr);
+    let k=ptr;
+    let fin=n+k;
+    if fin-k>cert.len() {
+        return 0;
+    }
+    for i in k..fin {
+        cert[i-k]=sc[i];
+    }
+    return n;
+}
 
+// extract pointer to ASN.1 raw public Key inside certificate, and return its length;
+// let public_key=&c[ptr..ptr+len]
+pub fn find_public_key(c: &[u8],ptr: &mut usize) -> usize {
     let mut j:usize=0;
     let mut len=getalen(SEQ,c,j);
     if len==0 {
-        return ret;
+        return 0;
     }
     j+=skip(len);
 
     if len+j != c.len() {
-        return ret;
+        return 0;
     }
 
     len=getalen(ANY,c,j);
     if len==0 {
-        return ret;
+        return 0;
     }
     j+=skip(len)+len; //jump over version clause
 
@@ -638,29 +719,48 @@ pub fn extract_public_key(c: &[u8],key: &mut [u8]) -> PKTYPE {
 
     len=getalen(SEQ,c,j);
     if len==0 {
-        return ret;
+        return 0;
     }
     j+=skip(len)+len; // jump over signature algorithm
 
     len=getalen(SEQ,c,j);
     if len==0 {
-        return ret;
+        return 0;
     }
     j += skip(len) + len; // skip issuer
 
     len=getalen(SEQ,c,j);
     if len==0 {
-        return ret;
+        return 0;
     }
     j += skip(len) + len; // skip validity
 
     len=getalen(SEQ,c,j);
     if len==0 {
-        return ret;
+        return 0;
     }
     j += skip(len) + len; // skip subject
 
+    let k=j;
     len=getalen(SEQ,c,j);
+    if len==0 {
+        return 0;
+    }
+    j += skip(len); // 
+
+    let fin=j+len;
+    *ptr=k;
+    return fin-k;
+}
+
+// get Public details from ASN.1 description
+pub fn get_public_key(c: &[u8],key: &mut [u8]) -> PKTYPE {
+    let mut koid:[u8;12]=[0;12];
+    let mut ret=PKTYPE::new();
+    let mut j=0;
+    let keylen=key.len();
+
+    let mut len=getalen(SEQ,c,j);
     if len==0 {
         return ret;
     }
@@ -685,6 +785,9 @@ pub fn extract_public_key(c: &[u8],key: &mut [u8]) -> PKTYPE {
     j += skip(len); 
 
     let mut fin=j+len;
+    if len>koid.len() {
+        return ret;
+    }
     let mut slen=0;
     while j<fin {
         koid[slen]=c[j];
@@ -701,6 +804,9 @@ pub fn extract_public_key(c: &[u8],key: &mut [u8]) -> PKTYPE {
     if RSAPK == koid[0..slen] {
         ret.kind=RSA;
     }
+    if DILITHIUM3 == koid[0..slen] {
+        ret.kind=PQ;
+    }
 
     if ret.kind==0 {
         return ret;
@@ -714,6 +820,10 @@ pub fn extract_public_key(c: &[u8],key: &mut [u8]) -> PKTYPE {
         j+=skip(len);
 
         fin=j+len;
+        if len>koid.len() {
+            ret.kind=0;
+            return ret;
+        }
         slen=0;
         while j<fin {
             koid[slen]=c[j];
@@ -744,7 +854,11 @@ pub fn extract_public_key(c: &[u8],key: &mut [u8]) -> PKTYPE {
     j+=1;
     len-=1; // skip bit shift (hopefully 0!)
 
-    if ret.kind==ECC || ret.kind==ECD {
+    if ret.kind==ECC || ret.kind==ECD || ret.kind==PQ {
+        if len>keylen {
+            ret.kind=0;
+            return ret;
+        }
         ret.len=len;
         fin=j+len;
         slen=0;
@@ -754,7 +868,10 @@ pub fn extract_public_key(c: &[u8],key: &mut [u8]) -> PKTYPE {
             j+=1;
         }
     }
-    if ret.kind==RSA { // // Key is (modulus,exponent) - assume exponent is 65537
+    if ret.kind==PQ {
+        ret.curve=8*len;
+    }
+    if ret.kind==RSA { // Key is (modulus,exponent) - assume exponent is 65537
         len=getalen(SEQ,c,j);
         if len==0 {
             ret.kind=0;
@@ -772,7 +889,10 @@ pub fn extract_public_key(c: &[u8],key: &mut [u8]) -> PKTYPE {
             j+=1;
             len-=1;
         }
-
+        if len>keylen {
+            ret.kind=0;
+            return ret;
+        }
         ret.len=len;
         fin=j+len;
         slen=0;
@@ -786,21 +906,30 @@ pub fn extract_public_key(c: &[u8],key: &mut [u8]) -> PKTYPE {
     return ret; 
 }
 
-pub fn find_issuer(c: &[u8]) -> usize {
+// Extract Public Key from inside Certificate
+pub fn extract_public_key(c: &[u8],key: &mut [u8]) -> PKTYPE {
+    let mut ptr=0;
+    let pklen = find_public_key(c,&mut ptr); // ptr is pointer into certificate, at start of ASN.1 raw public key
+    let cc=&c[ptr..ptr+pklen];
+    return get_public_key(&cc,key);
+}
+
+pub fn find_issuer(c: &[u8]) -> FDTYPE {
     let mut j:usize=0;
+    let mut ret=FDTYPE::new();
     let mut len=getalen(SEQ,c,j);
     if len==0 {
-        return 0;
+        return ret;
     }
     j += skip(len); 
 
     if len+j!=c.len() {
-        return 0;
+        return ret;
     }
 
     len=getalen(ANY,c,j);
     if len==0 {
-        return 0;
+        return ret;
     }
     j += skip(len)+len; // jump over version clause
     
@@ -811,47 +940,64 @@ pub fn find_issuer(c: &[u8]) -> usize {
 
     len=getalen(SEQ,c,j);
     if len==0 {
-        return 0;
+        return ret;
     }
     j += skip(len) + len; // jump over signature algorithm
 
-    return j;
+    len=getalen(SEQ,c,j);
+    ret.index=j;
+    ret.length=len+skip(len);
+
+    return ret;
 }
 
 pub fn find_validity(c: &[u8]) -> usize {
-    let mut j=find_issuer(c);
-    let len=getalen(SEQ,c,j);
-    if len==0 {
-        return 0;
-    }
-    j+=skip(len)+len; // skip issuer
+    let pos=find_issuer(c);
+    let j=pos.index+pos.length; // skip issuer
+
+    //let mut j=find_issuer(c);
+    //let len=getalen(SEQ,c,j);
+    //if len==0 {
+    //    return 0;
+    //}
+    //j+=skip(len)+len; // skip issuer
     return j;
 }
 
-pub fn find_subject(c: &[u8]) -> usize {
+pub fn find_subject(c: &[u8]) -> FDTYPE {
     let mut j=find_validity(c);
-    let len=getalen(SEQ,c,j);
+    let mut ret=FDTYPE::new();
+    let mut len=getalen(SEQ,c,j);
     if len==0 {
-        return 0;
+        return ret;
     }
     j+=skip(len)+len; // skip validity
-    return j;
+
+    len=getalen(SEQ,c,j);
+    ret.index=j;
+    ret.length=len+skip(len);
+
+    return ret;
 }
 
 pub fn self_signed(c: &[u8]) -> bool {
-    let mut ksub=find_subject(c);
-    let mut kiss=find_issuer(c);
+    let ksub=find_subject(c);
+    let kiss=find_issuer(c);
 
-    let sublen=getalen(SEQ,c,ksub);
-    let isslen=getalen(SEQ,c,kiss);
-    if sublen != isslen {
+    if ksub.length!=kiss.length {
         return false;
     }
-    ksub+=skip(sublen);
-    kiss+=skip(isslen);
+
+//    let sublen=getalen(SEQ,c,ksub);
+//    let isslen=getalen(SEQ,c,kiss);
+//    if sublen != isslen {
+//        return false;
+//    }
+//    ksub+=skip(sublen);
+//    kiss+=skip(isslen);
     let mut m:u8=0;
-    for i in 0..sublen {
-        m |= c[i+ksub]-c[i+kiss];
+    for i in 0..ksub.length {
+        m |= c[i+ksub.index]-c[i+kiss.index];
     }
     if m!=0 {
         return false;
@@ -868,7 +1014,6 @@ pub fn self_signed(c: &[u8]) -> bool {
 pub fn find_entity_property(c: &[u8],soid: &[u8],start: usize) -> FDTYPE {
     let mut ret=FDTYPE::new();
     let mut foid:[u8;32]=[0;32];
-    
     let mut j=start;
     let tlen=getalen(SEQ,c,j);
     if tlen==0 {
@@ -893,6 +1038,9 @@ pub fn find_entity_property(c: &[u8],soid: &[u8],start: usize) -> FDTYPE {
         }
         j+=skip(len);
         let fin=j+len;
+        if len>foid.len() {
+            return ret;
+        }
         let mut flen:usize=0;
         while j<fin {
             foid[flen]=c[j];
@@ -968,15 +1116,16 @@ pub fn find_expiry_date(c: &[u8],start: usize) -> usize {
 }
 
 pub fn find_extensions(c: &[u8]) -> usize {
-    let mut j=find_subject(c);
+    let pos=find_subject(c);
+    let mut j=pos.index+pos.length;
 
-    let mut len=getalen(SEQ,c,j);
-    if len==0 {
-        return 0;
-    }
-    j+=skip(len)+len; // skip subject
+//    let mut len=getalen(SEQ,c,j);
+//    if len==0 {
+//        return 0;
+//    }
+//    j+=skip(len)+len; // skip subject
 
-    len=getalen(SEQ,c,j);
+    let len=getalen(SEQ,c,j);
     if len==0 {
         return 0;
     }
@@ -1016,6 +1165,9 @@ pub fn find_extension(c: &[u8],soid: &[u8],start:usize) -> FDTYPE {
         len=getalen(OID,c,j);
         j+=skip(len);
         let fin=j+len;
+        if len>foid.len() {
+            return ret;
+        }
         let mut flen:usize=0;
         while j<fin {
             foid[flen]=c[j];

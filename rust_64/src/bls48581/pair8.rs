@@ -717,17 +717,20 @@ pub fn fexp(m: &FP48) -> FP48 {
 
 #[allow(non_snake_case)]
 /* GLV method */
-fn glv(e: &BIG) -> [BIG; 2] {
+fn glv(ee: &BIG) -> [BIG; 2] {
     let mut u: [BIG; 2] = [BIG::new(), BIG::new()];
     let q = BIG::new_ints(&rom::CURVE_ORDER);
     let mut x = BIG::new_ints(&rom::CURVE_BNX);
     let mut x2 = BIG::smul(&x, &x);
+
     x.copy(&BIG::smul(&x2, &x2));
-    x2.copy(&BIG::smul(&x, &x));
-    u[0].copy(&e);
-    u[0].rmod(&x2);
-    u[1].copy(&e);
-    u[1].div(&x2);
+    x2.copy(&BIG::smul(&x, &x));  // x^8
+    let bd=q.nbits()-x2.nbits();  // fixed
+
+    u[0].copy(&ee);
+    u[0].ctmod(&x2,bd);
+    u[1].copy(&ee);
+    u[1].ctdiv(&x2,bd);
     u[1].rsub(&q);
 
     u
@@ -735,7 +738,7 @@ fn glv(e: &BIG) -> [BIG; 2] {
 
 #[allow(non_snake_case)]
 /* Galbraith & Scott Method */
-pub fn gs(e: &BIG) -> [BIG; 16] {
+pub fn gs(ee: &BIG) -> [BIG; 16] {
     let mut u: [BIG; 16] = [
         BIG::new(),
         BIG::new(),
@@ -756,11 +759,14 @@ pub fn gs(e: &BIG) -> [BIG; 16] {
     ];
     let q = BIG::new_ints(&rom::CURVE_ORDER);
     let x = BIG::new_ints(&rom::CURVE_BNX);
-    let mut w = BIG::new_copy(&e);
+
+    let bd=q.nbits()-x.nbits();  // fixed
+
+    let mut w = BIG::new_copy(&ee);
     for i in 0..15 {
         u[i].copy(&w);
-        u[i].rmod(&x);
-        w.div(&x);
+        u[i].ctmod(&x,bd);
+        w.ctdiv(&x,bd);
     }
     u[15].copy(&w);
     if ecp::SIGN_OF_X == ecp::NEGATIVEX {
@@ -789,14 +795,17 @@ pub fn gs(e: &BIG) -> [BIG; 16] {
 /* Multiply P by e in group G1 */
 pub fn g1mul(P: &ECP, e: &BIG) -> ECP {
     let mut R = ECP::new();
+    let q = BIG::new_ints(&rom::CURVE_ORDER);
+    let mut ee= BIG::new_copy(e);
+    ee.rmod(&q);
     if rom::USE_GLV {
         R.copy(P);
         let mut Q = ECP::new();
         Q.copy(P);
         Q.affine();
-        let q = BIG::new_ints(&rom::CURVE_ORDER);
+
         let mut cru = FP::new_big(&BIG::new_ints(&rom::CRU));
-        let mut u = glv(e);
+        let mut u = glv(&ee);
         Q.mulx(&mut cru);
 
         let mut np = u[0].nbits();
@@ -818,7 +827,7 @@ pub fn g1mul(P: &ECP, e: &BIG) -> ECP {
         u[1].norm();
         R = R.mul2(&u[0], &mut Q, &u[1]);
     } else {
-        R = P.mul(e);
+        R = P.clmul(&ee,&q);
     }
     R
 }
@@ -827,6 +836,9 @@ pub fn g1mul(P: &ECP, e: &BIG) -> ECP {
 /* Multiply P by e in group G2 */
 pub fn g2mul(P: &ECP8, e: &BIG) -> ECP8 {
     let mut R = ECP8::new();
+    let q = BIG::new_ints(&rom::CURVE_ORDER);
+    let mut ee= BIG::new_copy(e);
+    ee.rmod(&q);
     if rom::USE_GS_G2 {
         let mut Q: [ECP8; 16] = [
             ECP8::new(),
@@ -846,8 +858,8 @@ pub fn g2mul(P: &ECP8, e: &BIG) -> ECP8 {
             ECP8::new(),
             ECP8::new(),
         ];
-        let q = BIG::new_ints(&rom::CURVE_ORDER);
-        let mut u = gs(e);
+
+        let mut u = gs(&ee);
         let mut T = ECP8::new();
 
         let f = ECP8::frob_constants();
@@ -875,7 +887,7 @@ pub fn g2mul(P: &ECP8, e: &BIG) -> ECP8 {
 
         R.copy(&ECP8::mul16(&mut Q, &u));
     } else {
-        R.copy(&P.mul(e));
+        R.copy(&P.mul(&ee));
     }
     R
 }
@@ -884,6 +896,9 @@ pub fn g2mul(P: &ECP8, e: &BIG) -> ECP8 {
 /* Note that this method requires a lot of RAM! Better to use compressed XTR method, see FP4.java */
 pub fn gtpow(d: &FP48, e: &BIG) -> FP48 {
     let mut r = FP48::new();
+    let q = BIG::new_ints(&rom::CURVE_ORDER);
+    let mut ee= BIG::new_copy(e);
+    ee.rmod(&q);
     if rom::USE_GS_GT {
         let mut g: [FP48; 16] = [
             FP48::new(),
@@ -904,9 +919,9 @@ pub fn gtpow(d: &FP48, e: &BIG) -> FP48 {
             FP48::new(),
         ];
         let f = FP2::new_bigs(&BIG::new_ints(&rom::FRA), &BIG::new_ints(&rom::FRB));
-        let q = BIG::new_ints(&rom::CURVE_ORDER);
+
         let mut t = BIG::new();
-        let mut u = gs(e);
+        let mut u = gs(&ee);
         let mut w = FP48::new();
 
         g[0].copy(&d);
@@ -927,7 +942,7 @@ pub fn gtpow(d: &FP48, e: &BIG) -> FP48 {
         }
         r.copy(&FP48::pow16(&mut g, &u));
     } else {
-        r.copy(&d.pow(e));
+        r.copy(&d.pow(&ee));
     }
     r
 }
@@ -935,34 +950,69 @@ pub fn gtpow(d: &FP48, e: &BIG) -> FP48 {
 /* test G1 group membership */
 #[allow(non_snake_case)]
 pub fn g1member(P: &ECP) -> bool {
-    let q = BIG::new_ints(&rom::CURVE_ORDER);
+    //let q = BIG::new_ints(&rom::CURVE_ORDER);
     if P.is_infinity() {
         return false;
     }
-    let W=g1mul(&P,&q);
-    if !W.is_infinity() {
+    let x = BIG::new_ints(&rom::CURVE_BNX);
+    let mut cru = FP::new_big(&BIG::new_ints(&rom::CRU));
+    let mut W=ECP::new(); W.copy(P); W.mulx(&mut cru);
+    let mut T=P.mul(&x); 
+    if P.equals(&T) {return false;}    // P is of low order         
+    T=T.mul(&x); T=T.mul(&x); T=T.mul(&x); T=T.mul(&x); T=T.mul(&x); T=T.mul(&x); T=T.mul(&x); T.neg();
+    if !W.equals(&T) {
         return false;
     }
+
+// Not needed
+//    W.add(P); T.mulx(&mut cru); W.add(&T);
+//    if !W.is_infinity() {
+//        return false;
+//    }   
+/*
+    let W=P.mul(&q); 
+    if !W.is_infinity() {
+        return false;
+    } */
     true
 }
 
 /* test G2 group membership */
 #[allow(non_snake_case)]
 pub fn g2member(P: &ECP8) -> bool {
-    let q = BIG::new_ints(&rom::CURVE_ORDER);
+    //let q = BIG::new_ints(&rom::CURVE_ORDER);
     if P.is_infinity() {
         return false;
     }
-    let W=g2mul(&P,&q);
-    if !W.is_infinity() {
+    let f = ECP8::frob_constants();
+    let x = BIG::new_ints(&rom::CURVE_BNX);
+    let mut W=ECP8::new(); W.copy(P); W.frob(&f,1);
+    let mut T=P.mul(&x);
+    if ecp::SIGN_OF_X == ecp::NEGATIVEX {
+        T.neg();
+    }
+/*
+    let mut R=ECP8::new(); R.copy(&W);
+    R.frob(&f,1);
+    W.sub(&R);
+    R.copy(&T);
+    R.frob(&f,1);
+    W.add(&R);
+*/
+    if !W.equals(&T) {
         return false;
     }
+/*
+    let W=P.mul(&q); 
+    if !W.is_infinity() {
+        return false;
+    } */
     true
 }
 
-/* test GT group membership */
-/* First check that m!=1, conj(m)*m==1, and m.m^{p^16}=m^{p^8} */
-pub fn gtmember(m: &FP48) -> bool {
+/* Check that m is in cyclotomic sub-group */
+/* Check that m!=1, conj(m)*m==1, and m.m^{p^16}=m^{p^8} */
+pub fn gtcyclotomic(m: &FP48) -> bool {
     if m.isunity() {
         return false;
     }
@@ -979,12 +1029,32 @@ pub fn gtmember(m: &FP48) -> bool {
     if !w.equals(&r) {
         return false;
     }
-    let q = BIG::new_ints(&rom::CURVE_ORDER);
-    w.copy(&m);
-    r.copy(&gtpow(&w,&q));
-    if !r.isunity() {
+    return true;
+}
+
+/* test for full GT group membership */
+pub fn gtmember(m: &FP48) -> bool {
+    if !gtcyclotomic(m) {
         return false;
     }
+    let f = FP2::new_bigs(&BIG::new_ints(&rom::FRA), &BIG::new_ints(&rom::FRB));    
+    let x = BIG::new_ints(&rom::CURVE_BNX);
+    let mut r=FP48::new_copy(m); r.frob(&f,1);
+    let mut t=m.pow(&x);
+
+    if ecp::SIGN_OF_X == ecp::NEGATIVEX {
+        t.conj();
+    }
+    
+    if !r.equals(&t) {
+        return false;
+    }
+/*
+    let q = BIG::new_ints(&rom::CURVE_ORDER);
+    let r = m.pow(&q);
+    if !r.isunity() {
+        return false;
+    } */
     true
 }
 

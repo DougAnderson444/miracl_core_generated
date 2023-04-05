@@ -106,7 +106,7 @@ impl FP {
         f
     }
 
-    pub fn new_rand(rng: &mut impl RAND) -> FP {
+    pub fn new_rand(rng: &mut RAND) -> FP {
         let m = BIG::new_ints(&rom::MODULUS);
         let w = BIG::randomnum(&m,rng);
         FP::new_big(&w)
@@ -209,7 +209,7 @@ impl FP {
     }
 
     /* convert to string */
-#[cfg(feature = "std")]
+    #[cfg(feature = "std")]
     pub fn tostring(&self) -> String {
         self.redc().tostring()
     }
@@ -487,6 +487,8 @@ impl FP {
     }
 
     /* return self^e mod Modulus */
+    // Could leak size of e
+    // but not used here with secret exponent e
     pub fn pow(&self, e: &BIG) -> FP {
         let mut tb: [FP; 16] = [
             FP::new(),

@@ -96,7 +96,7 @@ impl FP4 {
         f
     }
 
-    pub fn new_rand(rng: &mut impl RAND) -> FP4 {
+    pub fn new_rand(rng: &mut RAND) -> FP4 {
        FP4::new_fp2s(&FP2::new_rand(rng),&FP2::new_rand(rng))
     }
 
@@ -388,7 +388,7 @@ impl FP4 {
     }
 
     /* output to hex string */
-#[cfg(feature = "std")]
+    #[cfg(feature = "std")]
     pub fn tostring(&self) -> String {
         format!("[{},{}]", self.a.tostring(), self.b.tostring())
     }

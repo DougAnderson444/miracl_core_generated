@@ -324,7 +324,7 @@ impl ECP2 {
     }
 
     /* convert this to hex string */
-#[cfg(feature = "std")]
+    #[cfg(feature = "std")]
     pub fn tostring(&self) -> String {
         let mut W = ECP2::new();
         W.copy(self);
@@ -603,7 +603,9 @@ impl ECP2 {
         }
         w[nb] = (t.lastbits(5)) as i8;
 
-        P.copy(&W[((w[nb] as usize) - 1) / 2]);
+        //P.copy(&W[((w[nb] as usize) - 1) / 2]);
+
+        P.selector(&W, w[nb] as i32);
         for i in (0..nb).rev() {
             Q.selector(&W, w[i] as i32);
             P.dbl();
